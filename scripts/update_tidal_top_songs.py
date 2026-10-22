@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Fetches your top 5 monthly tracks from TIDAL using `tidalapi` and updates
-`assets/data/top-songs.json`.
+`assets/data/top-songs.json` (including 30-second audio preview URLs).
 
 Environment Variables:
   TIDAL_SESSION_JSON         (Required in CI) JSON string with token_type, access_token, refresh_token
@@ -10,7 +10,9 @@ Environment Variables:
 import datetime as dt
 import json
 import os
+import urllib.parse
 from pathlib import Path
+import requests
 import tidalapi
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -59,6 +61,25 @@ def get_track_cover(track) -> str:
     except Exception:
         pass
     return "https://tidal.com/favicon.ico"
+
+
+def fetch_itunes_preview(title: str, artist: str) -> str:
+    """Looks up a permanent 30-second m4a preview URL via the iTunes Search API."""
+    try:
+        query = f"{title} {artist}"
+        url = f"https://itunes.apple.com/search?term={urllib.parse.quote(query)}&entity=song&limit=3"
+        resp = requests.get(url, timeout=6)
+        if resp.ok:
+            results = resp.json().get("results", [])
+            artist_lower = artist.lower()
+            for r in results:
+                if artist_lower in (r.get("artistName", "") or "").lower() and r.get("previewUrl"):
+                    return r["previewUrl"]
+            if results and results[0].get("previewUrl"):
+                return results[0]["previewUrl"]
+    except Exception:
+        pass
+    return ""
 
 
 def get_mix_items(session: tidalapi.Session, mix_obj):
@@ -137,19 +158,23 @@ def main():
     formatted_tracks = []
 
     for idx, t in enumerate(tracks, start=1):
+        title = getattr(t, "name", "Unknown Track")
         artist_name = getattr(getattr(t, "artist", None), "name", "Unknown Artist")
         album_name = getattr(getattr(t, "album", None), "name", "")
         duration_sec = getattr(t, "duration", 0) or 0
         mins, secs = divmod(int(duration_sec), 60)
 
+        preview_url = fetch_itunes_preview(title, artist_name)
+
         entry = {
             "rank": idx,
-            "title": getattr(t, "name", "Unknown Track"),
+            "title": title,
             "artist": artist_name,
             "album": album_name,
             "cover": get_track_cover(t),
             "url": f"https://tidal.com/browse/track/{t.id}",
             "duration_label": f"{mins}:{secs:02d}" if duration_sec else f"Top #{idx}",
+            "preview_url": preview_url,
         }
         if getattr(t, "play_count", None):
             entry["plays"] = int(t.play_count)

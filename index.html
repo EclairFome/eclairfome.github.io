@@ -5,6 +5,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
     <title>Home — Eclair</title>
+    <meta name="description" content="Heya! I'm Eclair — 22yo Software Dev & R&D from Panama City. Check out my projects, tech setup, and monthly TIDAL rotation.">
+    <meta name="theme-color" content="#E16C1D">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://eclairfome.github.io/">
+    <meta property="og:title" content="Eclair's Website 🐇">
+    <meta property="og:description" content="Panama City | Bunny • Software Dev, AI/ML, Hi-Fi & Monthly TIDAL Rotation">
+    <meta property="og:image" content="https://eclairfome.github.io/assets/img/20230224_161230.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%234E3424'/%3E%3Crect x='6' y='8' width='52' height='9' rx='4' fill='%2365C3AE'/%3E%3Crect x='6' y='20' width='52' height='9' rx='4' fill='%23E2BF81'/%3E%3Crect x='6' y='32' width='52' height='9' rx='4' fill='%23F19D28'/%3E%3Crect x='6' y='44' width='52' height='9' rx='4' fill='%23E16C1D'/%3E%3C/svg%3E">
     <link rel="stylesheet" href="assets/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600..900;1,9..144,600..800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="assets/fonts/font-awesome.min.css">
@@ -38,6 +47,7 @@
                     <li class="nav-item"><a class="nav-link" href="#Home">Home</a></li>
                     <li class="nav-item"><a class="nav-link" href="#about">About</a></li>
                     <li class="nav-item"><a class="nav-link" href="#stuff">Stuff</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#setup">Gear</a></li>
                     <li class="nav-item"><a class="nav-link" href="#music">Music</a></li>
                 </ul>
             </div>
@@ -67,10 +77,14 @@
         <div class="container text-center position-relative" style="z-index: 2;">
             <div class="hero-eyebrow">
                 <span class="hero-eyebrow-dot"></span>
-                <span>Panama City | Bunny</span>
+                <span>Panama City <span id="panama-time"></span> | Bunny</span>
             </div>
             <h1 class="hero-title">
-                Eclair's <span class="hero-title-accent">Website!!!</span>
+                <span class="script-easter-egg" id="script-cycler" role="button" tabindex="0" title="Hover or click to cycle writing systems!">
+                    <span class="script-badge-tag" id="script-badge-tag">Latin • Click / Hover</span>
+                    <span class="script-easter-text" id="script-easter-text">Eclair's</span>
+                </span>
+                <span class="hero-title-accent">Website!!!</span>
             </h1>
             <p class="hero-subtitle">
                 Heya! My name is Eclair (nickname, not actual name lmao) and you probably know me from discord :3
@@ -98,7 +112,7 @@
                 <span class="section-tag">Introduction</span>
                 <h2 class="section-heading">A little about me</h2>
                 <p class="about-text">
-                    I'm a 22yo uni student from Panama and I speak both English and Spanish fluently, currently in my 4th year of Software Development. I graduated one year early from highschool (my school is just built different) with a bachelor of Arts, Science and Philosophy. Atm I work in research and development for a software company, tbh im still not sure in what I want to fully specialize in, but I really like machine learning!<br><br>
+                    I'm a 22yo uni student from Panama and speak both English and Spanish fluently, currently on my 4th year into majoring in Software Development. I graduated one year early from highschool (my school is just built different) with a bachelor of Arts, Science and Philosophy. Atm I work in research and development for a software company, tbh im still not sure in what I want to fully specialize in, but I really like working on AI integration and ML! I would also love to expand my knowledge to firmware in the near future.<br><br>
                     My birthday is on October 12th &hearts;
                 </p>
                 <p class="fw-bold mb-2" style="font-size: 0.95rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--retro-muted);">
@@ -109,10 +123,11 @@
                     <span class="interest-pill pill-sand">Geography</span>
                     <span class="interest-pill pill-mustard">Geopolitics</span>
                     <span class="interest-pill pill-orange">Theology</span>
-                    <span class="interest-pill pill-mint">Technology &amp; ML</span>
+                    <span class="interest-pill pill-mint">Technology</span>
                     <span class="interest-pill pill-sand">Gaming</span>
                     <span class="interest-pill pill-mustard">Photography</span>
                     <span class="interest-pill pill-orange">Language Writing Systems</span>
+                    <span class="interest-pill pill-mint">Hi-Fi</span>
                 </div>
             </div>
         </div>
@@ -160,8 +175,7 @@
                         </div>
                         <h3 class="bento-title">Social thingies</h3>
                         <p class="bento-desc">
-                            I dont really post much on anything, but still<br>
-                            (I mostly just post pics on IG!)
+                            I dont really post much on anything, but still 🐇
                         </p>
                     </div>
                     <div class="social-links-row">
@@ -207,6 +221,101 @@
         </div>
     </section>
 
+    <!-- My Gear & Tech Setup Section -->
+    <section class="section-block" id="setup">
+        <div class="container">
+            <div class="text-center mb-5">
+                <span class="section-tag">Hardware</span>
+                <h2 class="section-heading">Tech, Tech, Tech!</h2>
+            </div>
+
+            <div class="stuff-grid">
+                <!-- Card 1: PC Setup -->
+                <div class="retro-bento-card accent-mint">
+                    <div>
+                        <div class="bento-icon-box bg-mint">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M5 0a.5.5 0 0 1 .5.5V2h1V.5a.5.5 0 0 1 1 0V2h1V.5a.5.5 0 0 1 1 0V2h1V.5a.5.5 0 0 1 1 0V2A2.5 2.5 0 0 1 14 4.5h1.5a.5.5 0 0 1 0 1H14v1h1.5a.5.5 0 0 1 0 1H14v1h1.5a.5.5 0 0 1 0 1H14v1h1.5a.5.5 0 0 1 0 1H14a2.5 2.5 0 0 1-2.5 2.5v1.5a.5.5 0 0 1-1 0V14h-1v1.5a.5.5 0 0 1-1 0V14h-1v1.5a.5.5 0 0 1-1 0V14h-1v1.5a.5.5 0 0 1-1 0V14A2.5 2.5 0 0 1 2 11.5H.5a.5.5 0 0 1 0-1H2v-1H.5a.5.5 0 0 1 0-1H2v-1H.5a.5.5 0 0 1 0-1H2v-1H.5a.5.5 0 0 1 0-1H2A2.5 2.5 0 0 1 4.5 2V.5A.5.5 0 0 1 5 0zm-.5 3A1.5 1.5 0 0 0 3 4.5v7A1.5 1.5 0 0 0 4.5 13h7a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 11.5 3h-7zM5 6.5A1.5 1.5 0 0 1 6.5 5h3A1.5 1.5 0 0 1 11 6.5v3A1.5 1.5 0 0 1 9.5 11h-3A1.5 1.5 0 0 1 5 9.5v-3zM6.5 6a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3z"/>
+                            </svg>
+                        </div>
+                        <h3 class="bento-title">PC Setup</h3>
+                        <p class="bento-desc mb-3">
+                            Main workstation &amp; gaming rig, allat just to play friendslop games.
+                        </p>
+                    </div>
+                    <div class="gear-spec-list">
+                        <div class="gear-spec-item">
+                            <span class="gear-spec-label tag-mint">GPU</span>
+                            <span class="gear-spec-value">RTX 5080</span>
+                        </div>
+                        <div class="gear-spec-item">
+                            <span class="gear-spec-label tag-mint">CPU</span>
+                            <span class="gear-spec-value">Ryzen 7 9800X3D</span>
+                        </div>
+                        <div class="gear-spec-item">
+                            <span class="gear-spec-label tag-mint">RAM</span>
+                            <span class="gear-spec-value">32GB DDR5</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 2: VR Setup -->
+                <div class="retro-bento-card accent-mustard">
+                    <div>
+                        <div class="bento-icon-box bg-mustard">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M8 1.248c1.857 0 3.526.641 4.65 1.794a4.978 4.978 0 0 1 2.518 1.09C15.907 4.682 16 5.335 16 6v4c0 1.657-1.343 3-3 3-.99 0-1.872-.482-2.418-1.225L9.38 10.14a1.75 1.75 0 0 0-2.76 0l-1.202 1.635C4.872 12.518 3.99 13 3 13c-1.657 0-3-1.343-3-3V6c0-.665.093-1.318.832-1.868a4.978 4.978 0 0 1 2.518-1.09C4.474 1.889 6.143 1.248 8 1.248zM3 4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2c.662 0 1.253-.323 1.614-.82l1.202-1.635a2.75 2.75 0 0 1 4.368 0l1.202 1.635c.361.497.952.82 1.614.82a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H3z"/>
+                            </svg>
+                        </div>
+                        <h3 class="bento-title">VR Setup</h3>
+                        <p class="bento-desc mb-3">
+                            Wireless PCVR, catch me on VRC.
+                        </p>
+                    </div>
+                    <div class="gear-spec-list">
+                        <div class="gear-spec-item">
+                            <span class="gear-spec-label tag-mustard">Headset</span>
+                            <span class="gear-spec-value">Meta Quest 3</span>
+                        </div>
+                        <div class="gear-spec-item">
+                            <span class="gear-spec-label tag-mustard">Trackers</span>
+                            <span class="gear-spec-value">VIVE Trackers Ultimate</span>
+                        </div>
+                        <div class="gear-spec-item">
+                            <span class="gear-spec-label tag-mustard">Router</span>
+                            <span class="gear-spec-value">Kevin Minion Router</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 3: Audio / Hi-Fi Setup -->
+                <div class="retro-bento-card accent-orange">
+                    <div>
+                        <div class="bento-icon-box bg-orange">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M8 3a5 5 0 0 0-5 5v1h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a6 6 0 1 1 12 0v5a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1V8a5 5 0 0 0-5-5z"/>
+                            </svg>
+                        </div>
+                        <h3 class="bento-title">Audio Setup</h3>
+                        <p class="bento-desc mb-3">
+                            Desktop Hi-Fi chain pushing uncompressed lossless audio up to 32-bit / 768kHz PCM &amp; native DSD512.
+                        </p>
+                    </div>
+                    <div class="gear-spec-list">
+                        <div class="gear-spec-item">
+                            <span class="gear-spec-label tag-orange">Headphones</span>
+                            <span class="gear-spec-value">Beyerdynamic DT 990 PRO</span>
+                        </div>
+                        <div class="gear-spec-item">
+                            <span class="gear-spec-label tag-orange">DAC / Amp</span>
+                            <span class="gear-spec-value">FiiO K5 Pro</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- My Top Songs of the Month (TIDAL Automated Widget) -->
     <section class="section-block pb-5" id="music">
         <div class="container">
@@ -236,6 +345,14 @@
     <!-- Bottom 70s 5-Stripe Ribbon -->
     <div class="retro-stripe-bar mt-5"></div>
 
+    <!-- Click-to-Zoom 70s Photo Lightbox -->
+    <div class="retro-lightbox" id="retro-lightbox" role="dialog" aria-modal="true" aria-label="Photo preview">
+        <div class="retro-lightbox-card">
+            <button class="retro-lightbox-close" id="retro-lightbox-close" type="button" aria-label="Close preview">&times;</button>
+            <img class="retro-lightbox-img" id="retro-lightbox-img" src="" alt="Expanded photo">
+        </div>
+    </div>
+
     <!-- Panama Discord Floating Toast (Root stacking context so it always stays on top) -->
     <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 9999;">
         <div class="toast hide" role="alert" data-bs-animation="true" data-bs-autohide="false" id="liveToast" aria-live="assertive" aria-atomic="true">
@@ -258,6 +375,87 @@
                 const toast = new bootstrap.Toast(toastLiveExample);
                 toast.show();
             }
+
+            // Writing Systems Easter Egg (Latin <-> Chinese <-> Hebrew)
+            const scripts = [
+                { text: "Eclair's", label: "Latin • Click / Hover", dir: "ltr" },
+                { text: "艾柯莱", label: "中文 • Chinese", dir: "ltr" },
+                { text: "אקלר", label: "עברית • Hebrew", dir: "rtl" }
+            ];
+            let scriptIdx = 0;
+            const cycler = document.getElementById("script-cycler");
+            const textEl = document.getElementById("script-easter-text");
+            const badgeEl = document.getElementById("script-badge-tag");
+
+            function cycleScript() {
+                if (!textEl || !badgeEl) return;
+                scriptIdx = (scriptIdx + 1) % scripts.length;
+                const next = scripts[scriptIdx];
+                textEl.classList.add("is-flipping");
+                setTimeout(function () {
+                    textEl.textContent = next.text;
+                    textEl.setAttribute("dir", next.dir);
+                    badgeEl.textContent = next.label;
+                    textEl.classList.remove("is-flipping");
+                }, 160);
+            }
+
+            if (cycler) {
+                cycler.addEventListener("mouseenter", cycleScript);
+                cycler.addEventListener("click", cycleScript);
+                cycler.addEventListener("keydown", function (e) {
+                    if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        cycleScript();
+                    }
+                });
+            }
+
+            // Live Panama City Clock (America/Panama, UTC-5)
+            const timeEl = document.getElementById("panama-time");
+            function updatePanamaTime() {
+                if (!timeEl) return;
+                try {
+                    const formatted = new Intl.DateTimeFormat("en-US", {
+                        timeZone: "America/Panama",
+                        hour: "numeric",
+                        minute: "2-digit",
+                        hour12: true
+                    }).format(new Date());
+                    timeEl.textContent = "• " + formatted;
+                } catch (e) {}
+            }
+            updatePanamaTime();
+            setInterval(updatePanamaTime, 15000);
+
+            // Click-to-Zoom Lightbox for Hero Photos
+            const lightbox = document.getElementById("retro-lightbox");
+            const lightboxImg = document.getElementById("retro-lightbox-img");
+            const lightboxClose = document.getElementById("retro-lightbox-close");
+
+            function closeLightbox() {
+                if (lightbox) lightbox.classList.remove("is-open");
+            }
+
+            document.querySelectorAll(".photo-frame img").forEach(function (img) {
+                img.addEventListener("click", function () {
+                    if (!lightbox || !lightboxImg) return;
+                    lightboxImg.src = img.src;
+                    lightboxImg.alt = img.alt || "Photo preview";
+                    lightbox.classList.add("is-open");
+                });
+            });
+
+            if (lightbox) {
+                lightbox.addEventListener("click", function (e) {
+                    if (e.target === lightbox || e.target === lightboxClose) {
+                        closeLightbox();
+                    }
+                });
+            }
+            document.addEventListener("keydown", function (e) {
+                if (e.key === "Escape") closeLightbox();
+            });
         });
     </script>
     <script src="assets/js/top-songs.js"></script>

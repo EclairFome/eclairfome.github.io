@@ -115,6 +115,7 @@
   border: 1.5px solid rgba(78, 52, 36, 0.28);
   text-decoration: none;
   color: inherit;
+  cursor: pointer;
   transition:
     transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
     background 0.25s ease,
@@ -134,12 +135,18 @@
   }
 }
 
-.song-row:hover {
+.song-row:hover,
+.song-row.is-playing {
   transform: translate(-3px, -3px);
   background: #fffdf9;
   border-color: #4e3424;
   box-shadow: 5px 5px 0 #4e3424;
   color: inherit;
+}
+
+.song-row.is-playing {
+  background: #fff8ea;
+  border-color: #e16c1d;
 }
 
 /* Rank Badges — Color-coded to the 5 70s Stripes */
@@ -190,7 +197,83 @@
   transform: scale(1.08) rotate(-4deg);
 }
 
-/* Cover Art */
+/* Cover Art & Sliding 70s Vinyl Disc */
+.song-sleeve-group {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  margin-right: 6px;
+  transition: margin-right 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.song-row:hover .song-sleeve-group,
+.song-row.is-playing .song-sleeve-group {
+  margin-right: 24px;
+}
+
+.song-vinyl {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, transparent 30%, rgba(255, 255, 255, 0.08) 31%, transparent 33%),
+    radial-gradient(circle at center, transparent 48%, rgba(255, 255, 255, 0.07) 49%, transparent 51%),
+    radial-gradient(circle at center, transparent 64%, rgba(255, 255, 255, 0.06) 65%, transparent 67%),
+    conic-gradient(from 30deg, #1b130e, #35261d 15%, #1b130e 30%, #1b130e 50%, #35261d 65%, #1b130e 80%, #1b130e);
+  border: 1.5px solid #2b1b12;
+  box-shadow: 2px 2px 6px rgba(43, 27, 18, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  transform: translateX(8px) rotate(0deg);
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.song-vinyl-label {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #e16c1d;
+  border: 2px solid #fbf0dc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.song-vinyl-label::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #2b1b12;
+}
+
+.song-row[data-rank="1"] .song-vinyl-label { background: #e16c1d; }
+.song-row[data-rank="2"] .song-vinyl-label { background: #f19d28; }
+.song-row[data-rank="3"] .song-vinyl-label { background: #65c3ae; }
+.song-row[data-rank="4"] .song-vinyl-label { background: #e2bf81; }
+.song-row[data-rank="5"] .song-vinyl-label { background: #65c3ae; }
+
+@keyframes vinylSpin {
+  from {
+    transform: translateX(28px) rotate(0deg);
+  }
+  to {
+    transform: translateX(28px) rotate(360deg);
+  }
+}
+
+.song-row:hover .song-vinyl,
+.song-row.is-playing .song-vinyl {
+  transform: translateX(28px) rotate(180deg);
+  animation: vinylSpin 2.4s linear infinite;
+}
+
 .song-cover-wrap {
   position: relative;
   width: 64px;
@@ -199,8 +282,9 @@
   overflow: hidden;
   flex-shrink: 0;
   border: 1.5px solid #4e3424;
-  box-shadow: 2px 2px 0 rgba(78, 52, 36, 0.35);
+  box-shadow: 3px 2px 6px rgba(43, 27, 18, 0.38);
   background: #4e3424;
+  z-index: 2;
 }
 
 .song-cover {
@@ -225,7 +309,8 @@
   transition: opacity 0.22s ease;
 }
 
-.song-row:hover .song-cover-overlay {
+.song-row:hover .song-cover-overlay,
+.song-row.is-playing .song-cover-overlay {
   opacity: 1;
 }
 
@@ -233,6 +318,18 @@
   width: 24px;
   height: 24px;
   fill: #fbf0dc;
+}
+
+.song-cover-overlay .icon-pause {
+  display: none;
+}
+
+.song-row.is-playing .song-cover-overlay .icon-play {
+  display: none;
+}
+
+.song-row.is-playing .song-cover-overlay .icon-pause {
+  display: block;
 }
 
 /* Track Info & Play Bar */
@@ -244,10 +341,18 @@
 
 .song-top-line {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
   margin-bottom: 0.15rem;
+}
+
+.song-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  flex: 1;
 }
 
 .song-title {
@@ -261,8 +366,80 @@
   transition: color 0.2s ease;
 }
 
-.song-row:hover .song-title {
+/* 5-Bar 70s VU / LED Equalizer */
+.retro-eq {
+  display: none;
+  align-items: flex-end;
+  gap: 2.5px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.song-row.is-playing .retro-eq,
+.top-songs-card.has-playing .header-eq {
+  display: inline-flex;
+}
+
+.eq-bar {
+  width: 3px;
+  border-radius: 2px;
+  animation: eqBounce 0.75s ease-in-out infinite alternate;
+}
+
+.eq-bar.eq-1 { background: #65c3ae; height: 40%; animation-delay: 0s; }
+.eq-bar.eq-2 { background: #e2bf81; height: 85%; animation-delay: 0.15s; }
+.eq-bar.eq-3 { background: #f19d28; height: 60%; animation-delay: 0.3s; }
+.eq-bar.eq-4 { background: #e16c1d; height: 95%; animation-delay: 0.1s; }
+.eq-bar.eq-5 { background: #4e3424; height: 50%; animation-delay: 0.25s; }
+
+@keyframes eqBounce {
+  0% {
+    height: 22%;
+  }
+  50% {
+    height: 100%;
+  }
+  100% {
+    height: 38%;
+  }
+}
+
+.song-row:hover .song-title,
+.song-row.is-playing .song-title {
   color: #e16c1d;
+}
+
+.song-meta-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.song-tidal-link {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #6e523f;
+  background: rgba(78, 52, 36, 0.08);
+  border: 1px solid rgba(78, 52, 36, 0.2);
+  transition: all 0.2s ease;
+}
+
+.song-tidal-link:hover {
+  background: #4e3424;
+  color: #fbf0dc;
+  border-color: #4e3424;
+  transform: scale(1.08);
+}
+
+.song-tidal-link svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
 }
 
 .song-plays {
@@ -278,7 +455,8 @@
   transition: all 0.22s ease;
 }
 
-.song-row:hover .song-plays {
+.song-row:hover .song-plays,
+.song-row.is-playing .song-plays {
   background: #f19d28;
   color: #2b1b12;
   border-color: #4e3424;
@@ -321,9 +499,14 @@
     gap: 0.7rem;
     padding: 0.65rem;
   }
+  .song-sleeve-group,
   .song-cover-wrap {
     width: 52px;
     height: 52px;
+  }
+  .song-vinyl {
+    width: 46px;
+    height: 46px;
   }
   .song-rank {
     min-width: 30px;
