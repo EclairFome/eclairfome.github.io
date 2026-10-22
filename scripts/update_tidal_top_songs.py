@@ -181,9 +181,27 @@ def main():
 
         formatted_tracks.append(entry)
 
+    # Only bump updated_at if the tracks list actually changed (prevents noisy daily commits)
+    existing_date = now_str
+    if OUTPUT_JSON.exists():
+        try:
+            existing_data = json.loads(OUTPUT_JSON.read_text(encoding="utf-8"))
+            existing_tracks = [
+                (t.get("rank"), t.get("title"), t.get("artist"), t.get("url"))
+                for t in existing_data.get("tracks", [])
+            ]
+            new_tracks = [
+                (t.get("rank"), t.get("title"), t.get("artist"), t.get("url"))
+                for t in formatted_tracks
+            ]
+            if existing_tracks == new_tracks and existing_data.get("updated_at"):
+                existing_date = existing_data["updated_at"]
+        except Exception:
+            pass
+
     output_data = {
-        "updated_at": now_str,
-        "period_label": period_label,
+        "updated_at": existing_date,
+        "period_label": "Last 30 Days • My Most Listened",
         "source": "TIDAL",
         "tracks": formatted_tracks,
     }

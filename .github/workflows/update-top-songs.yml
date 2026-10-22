@@ -1,11 +1,10 @@
 name: Update Top Songs from TIDAL
 
 on:
-  # Runs automatically on the 1st of every month and every Monday at 08:00 UTC
+  # Checks TIDAL every 2 hours for rolling "My Most Listened" changes
   schedule:
-    - cron: "0 8 1 * *"
-    - cron: "0 8 * * 1"
-  # Allows triggering an instant update anytime from the GitHub Actions tab
+    - cron: "0 */2 * * *"
+  # Also runs whenever you push to main or click "Run workflow" manually
   workflow_dispatch:
 
 permissions:
