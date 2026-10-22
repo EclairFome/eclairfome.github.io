@@ -1,0 +1,15 @@
+{
+  "name": "Tidal Music Rich Presence",
+  "description": "Tidal Rich Presence via Last.fm with automatic PC Vencord handoff, fallback album art, Tidal logo, and 30m pause grace.",
+  "authors": [
+    {
+      "name": "Eclair",
+      "id": "879393496627306587"
+    }
+  ],
+  "main": "index.js",
+  "hash": "c421b3aeea08d5b69be6fa406e77b806f6f63f47ef00bdbbcb140de03c2a6fbf",
+  "vendetta": {
+    "icon": "ic_stage_music"
+  }
+}
