@@ -1,0 +1,45 @@
+name: Update Top Songs from TIDAL
+
+on:
+  # Runs automatically on the 1st of every month and every Monday at 08:00 UTC
+  schedule:
+    - cron: "0 8 1 * *"
+    - cron: "0 8 * * 1"
+  # Allows triggering an instant update anytime from the GitHub Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-top-songs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tidalapi
+        run: pip install --upgrade pip tidalapi
+
+      - name: Fetch Top Songs from TIDAL
+        env:
+          TIDAL_SESSION_JSON: ${{ secrets.TIDAL_SESSION_JSON }}
+          TIDAL_MIX_OR_PLAYLIST_ID: ${{ vars.TIDAL_MIX_OR_PLAYLIST_ID }}
+        run: python scripts/update_tidal_top_songs.py
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/data/top-songs.json
+          if git diff --staged --quiet; then
+            echo "No changes to top-songs.json"
+          else
+            git commit -m "chore(music): auto-update monthly top songs from TIDAL"
+            git push
+          fi

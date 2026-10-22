@@ -1,0 +1,4 @@
+# Private local TIDAL OAuth credentials (never commit)
+.tidal_session.json
+__pycache__/
+*.pyc

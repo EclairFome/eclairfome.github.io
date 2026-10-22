@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="assets/bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800&amp;display=swap">
     <link rel="stylesheet" href="assets/fonts/font-awesome.min.css">
+    <link rel="stylesheet" href="assets/css/top-songs.css">
 </head>
 
 <body class="text-start">
@@ -177,9 +178,23 @@
     <section>
         <div class="container py-5">
             <div class="mx-auto" style="max-width: 900px;"></div>
-            <h4 style="text-align: center;"><br>My top songs of the month</h4>
+
             <div class="container text-center">
-    <img src="assets/img/16nUnGcL.jpg" alt="On repeat songs" class="img-fluid mx-auto d-block" style="max-width:560px;width:100%;height:auto;" />
+            <div class="top-songs-card mt-4">
+                <div class="top-songs-header">
+                    <div class="top-songs-title-group">
+                        <h4 class="top-songs-title">My top songs of the month</h4>
+                        <span class="top-songs-subtitle" id="top-songs-subtitle">Monthly Rotation</span>
+                    </div>
+                    <span class="tidal-badge" title="Synced from TIDAL">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12.012 3.992L8.008 7.996 4.004 3.992 0 7.996 4.004 12l4.004-4.004L12.012 12l-4.004 4.004 4.004 4.004 4.004-4.004L12.012 12l4.004-4.004-4.004-4.004zM16.042 7.996l3.979-3.979L24 7.996l-3.979 3.979-3.979-3.979z"/>
+                        </svg>
+                        TIDAL
+                    </span>
+                </div>
+                <div class="top-songs-list" id="top-songs-list"></div>
+            </div>
 </div>
 
         </div>
@@ -194,6 +209,7 @@
     <script src="assets/js/bs-init.js"></script>
     <script src="assets/js/bold-and-dark.js"></script>
     <script src="assets/js/Scroll-To-scroll-down.js"></script>
+    <script src="assets/js/top-songs.js"></script>
 </body>
 
 </html>
