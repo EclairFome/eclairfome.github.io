@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-22",
+  "updated_at": "2026-10-23",
   "period_label": "Last 30 Days • My Most Listened",
   "source": "TIDAL",
   "tracks": [
@@ -25,33 +25,33 @@
     },
     {
       "rank": 3,
-      "title": "snug tug",
-      "artist": "Pompey",
-      "album": "Snug Tug (single)",
-      "cover": "https://resources.tidal.com/images/2dbcb70c/eabc/41fd/9b3d/f96fb5c02e48/640x640.jpg",
-      "url": "https://tidal.com/browse/track/417023145",
-      "duration_label": "2:36",
-      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/71/1a/fb/711afbaf-eb39-cba5-732f-9bf651696d4b/mzaf_9067500434685141881.plus.aac.p.m4a"
-    },
-    {
-      "rank": 4,
       "title": "Bottle",
       "artist": "Remi Wolf",
       "album": "Bottle",
       "cover": "https://resources.tidal.com/images/2ce894e1/abf9/4357/868d/1f1d43bbe252/640x640.jpg",
       "url": "https://tidal.com/browse/track/552117597",
       "duration_label": "4:18",
-      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/12/72/42/127242f9-351b-aab0-0647-29be47627ca0/mzaf_6003777851833186706.plus.aac.p.m4a"
+      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/b5/a0/aa/b5a0aad3-9c19-6462-a054-4d6179784ff4/mzaf_4305887271065854431.plus.aac.p.m4a"
+    },
+    {
+      "rank": 4,
+      "title": "Señales",
+      "artist": "Candelabro",
+      "album": "Ahora o Nunca",
+      "cover": "https://resources.tidal.com/images/d4a40ddc/173c/40d6/8c93/651097e841f8/640x640.jpg",
+      "url": "https://tidal.com/browse/track/326616885",
+      "duration_label": "2:41",
+      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/51/17/95/51179581-e249-e52a-5bce-744ac2982678/mzaf_17860899489840587041.plus.aac.p.m4a"
     },
     {
       "rank": 5,
-      "title": "BESAME",
-      "artist": "isaac moises",
-      "album": "QUE SUENE ESA MALDITA GUITARRA",
-      "cover": "https://resources.tidal.com/images/c997d161/4bdd/47b2/85d5/c690a96c7b29/640x640.jpg",
-      "url": "https://tidal.com/browse/track/563252949",
-      "duration_label": "2:05",
-      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/fe/76/d8/fe76d83b-3916-a774-dc87-16b3340fd850/mzaf_3981445149790149823.plus.aac.p.m4a"
+      "title": "Evil Spawn",
+      "artist": "Waxahatchee",
+      "album": "Tigers Blood",
+      "cover": "https://resources.tidal.com/images/9c091147/0ed6/4cb4/8406/44029e909b5a/640x640.jpg",
+      "url": "https://tidal.com/browse/track/336429540",
+      "duration_label": "3:13",
+      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/02/f3/21/02f32108-3d0c-4fab-f31b-3969d9944eac/mzaf_7913548966017472784.plus.aac.p.m4a"
     }
   ]
 }
