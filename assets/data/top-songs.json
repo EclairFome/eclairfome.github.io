@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-23",
+  "updated_at": "2026-10-24",
   "period_label": "Last 30 Days • My Most Listened",
   "source": "TIDAL",
   "tracks": [
@@ -15,6 +15,16 @@
     },
     {
       "rank": 2,
+      "title": "Bottle",
+      "artist": "Remi Wolf",
+      "album": "Bottle",
+      "cover": "https://resources.tidal.com/images/2ce894e1/abf9/4357/868d/1f1d43bbe252/640x640.jpg",
+      "url": "https://tidal.com/browse/track/552117597",
+      "duration_label": "4:18",
+      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/12/72/42/127242f9-351b-aab0-0647-29be47627ca0/mzaf_6003777851833186706.plus.aac.p.m4a"
+    },
+    {
+      "rank": 3,
       "title": "the cops are coming",
       "artist": "Junior Mesa",
       "album": "the cops are coming",
@@ -22,16 +32,6 @@
       "url": "https://tidal.com/browse/track/549286222",
       "duration_label": "3:14",
       "preview_url": ""
-    },
-    {
-      "rank": 3,
-      "title": "Bottle",
-      "artist": "Remi Wolf",
-      "album": "Bottle",
-      "cover": "https://resources.tidal.com/images/2ce894e1/abf9/4357/868d/1f1d43bbe252/640x640.jpg",
-      "url": "https://tidal.com/browse/track/552117597",
-      "duration_label": "4:18",
-      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/b5/a0/aa/b5a0aad3-9c19-6462-a054-4d6179784ff4/mzaf_4305887271065854431.plus.aac.p.m4a"
     },
     {
       "rank": 4,
@@ -45,13 +45,13 @@
     },
     {
       "rank": 5,
-      "title": "Evil Spawn",
-      "artist": "Waxahatchee",
-      "album": "Tigers Blood",
-      "cover": "https://resources.tidal.com/images/9c091147/0ed6/4cb4/8406/44029e909b5a/640x640.jpg",
-      "url": "https://tidal.com/browse/track/336429540",
-      "duration_label": "3:13",
-      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/02/f3/21/02f32108-3d0c-4fab-f31b-3969d9944eac/mzaf_7913548966017472784.plus.aac.p.m4a"
+      "title": "ME GUSTA LA PLATA",
+      "artist": "isaac moises",
+      "album": "LA ULTIMA ESTRELLA",
+      "cover": "https://resources.tidal.com/images/00c79847/d811/41fe/b5c5/abb5fa675085/640x640.jpg",
+      "url": "https://tidal.com/browse/track/570644381",
+      "duration_label": "1:49",
+      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/24/47/e5/2447e593-b0d6-41b5-b678-2bd036ee20fb/mzaf_13212010029208402187.plus.aac.p.m4a"
     }
   ]
 }
