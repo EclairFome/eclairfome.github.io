@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-24",
+  "updated_at": "2026-10-25",
   "period_label": "Last 30 Days • My Most Listened",
   "source": "TIDAL",
   "tracks": [
@@ -35,16 +35,6 @@
     },
     {
       "rank": 4,
-      "title": "Señales",
-      "artist": "Candelabro",
-      "album": "Ahora o Nunca",
-      "cover": "https://resources.tidal.com/images/d4a40ddc/173c/40d6/8c93/651097e841f8/640x640.jpg",
-      "url": "https://tidal.com/browse/track/326616885",
-      "duration_label": "2:41",
-      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/51/17/95/51179581-e249-e52a-5bce-744ac2982678/mzaf_17860899489840587041.plus.aac.p.m4a"
-    },
-    {
-      "rank": 5,
       "title": "ME GUSTA LA PLATA",
       "artist": "isaac moises",
       "album": "LA ULTIMA ESTRELLA",
@@ -52,6 +42,16 @@
       "url": "https://tidal.com/browse/track/570644381",
       "duration_label": "1:49",
       "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/24/47/e5/2447e593-b0d6-41b5-b678-2bd036ee20fb/mzaf_13212010029208402187.plus.aac.p.m4a"
+    },
+    {
+      "rank": 5,
+      "title": "I Don't Know Why I Said That",
+      "artist": "Me As A Girl",
+      "album": "I Don't Know Why I Said That",
+      "cover": "https://resources.tidal.com/images/69e79f02/bd6b/4d73/953c/70a6a58b4a1a/640x640.jpg",
+      "url": "https://tidal.com/browse/track/554904476",
+      "duration_label": "2:46",
+      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/20/4c/95/204c95e2-11c9-2202-508e-0aba05c19c42/mzaf_5646714410516763783.plus.aac.p.m4a"
     }
   ]
 }
