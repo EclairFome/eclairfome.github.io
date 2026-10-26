@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-25",
+  "updated_at": "2026-10-26",
   "period_label": "Last 30 Days • My Most Listened",
   "source": "TIDAL",
   "tracks": [
@@ -45,13 +45,13 @@
     },
     {
       "rank": 5,
-      "title": "I Don't Know Why I Said That",
-      "artist": "Me As A Girl",
-      "album": "I Don't Know Why I Said That",
-      "cover": "https://resources.tidal.com/images/69e79f02/bd6b/4d73/953c/70a6a58b4a1a/640x640.jpg",
-      "url": "https://tidal.com/browse/track/554904476",
-      "duration_label": "2:46",
-      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/20/4c/95/204c95e2-11c9-2202-508e-0aba05c19c42/mzaf_5646714410516763783.plus.aac.p.m4a"
+      "title": "Thunder",
+      "artist": "Imagine Dragons",
+      "album": "Evolve",
+      "cover": "https://resources.tidal.com/images/ef216bbe/0d36/41b8/abeb/6bf61179d738/640x640.jpg",
+      "url": "https://tidal.com/browse/track/91950975",
+      "duration_label": "3:07",
+      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/78/7d/8b/787d8b89-7b57-d3bc-1f9d-6378fad1b4f5/mzaf_5131352572683029126.plus.aac.p.m4a"
     }
   ]
 }
