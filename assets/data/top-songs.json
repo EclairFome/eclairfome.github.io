@@ -1,20 +1,10 @@
 {
-  "updated_at": "2026-10-29",
+  "updated_at": "2026-10-30",
   "period_label": "Last 30 Days • My Most Listened",
   "source": "TIDAL",
   "tracks": [
     {
       "rank": 1,
-      "title": "the cops are coming",
-      "artist": "Junior Mesa",
-      "album": "the cops are coming",
-      "cover": "https://resources.tidal.com/images/7305e25c/45ca/44a6/bc26/d2ee0d5895c1/640x640.jpg",
-      "url": "https://tidal.com/browse/track/549286222",
-      "duration_label": "3:14",
-      "preview_url": ""
-    },
-    {
-      "rank": 2,
       "title": "27a Pitfield St",
       "artist": "bassvictim",
       "album": "Forever",
@@ -22,6 +12,16 @@
       "url": "https://tidal.com/browse/track/529703645",
       "duration_label": "2:47",
       "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/75/ef/d8/75efd8ef-ea00-ffa8-eb69-4184d418415a/mzaf_8664352154715662537.plus.aac.p.m4a"
+    },
+    {
+      "rank": 2,
+      "title": "the cops are coming",
+      "artist": "Junior Mesa",
+      "album": "the cops are coming",
+      "cover": "https://resources.tidal.com/images/7305e25c/45ca/44a6/bc26/d2ee0d5895c1/640x640.jpg",
+      "url": "https://tidal.com/browse/track/549286222",
+      "duration_label": "3:14",
+      "preview_url": ""
     },
     {
       "rank": 3,
