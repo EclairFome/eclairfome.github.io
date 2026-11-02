@@ -1,20 +1,10 @@
 {
-  "updated_at": "2026-11-01",
+  "updated_at": "2026-11-02",
   "period_label": "Last 30 Days • My Most Listened",
   "source": "TIDAL",
   "tracks": [
     {
       "rank": 1,
-      "title": "27a Pitfield St",
-      "artist": "bassvictim",
-      "album": "Forever",
-      "cover": "https://resources.tidal.com/images/2377a080/a18b/4bc6/8e79/4fbce2ba1348/640x640.jpg",
-      "url": "https://tidal.com/browse/track/529703645",
-      "duration_label": "2:47",
-      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/75/ef/d8/75efd8ef-ea00-ffa8-eb69-4184d418415a/mzaf_8664352154715662537.plus.aac.p.m4a"
-    },
-    {
-      "rank": 2,
       "title": "the cops are coming",
       "artist": "Junior Mesa",
       "album": "the cops are coming",
@@ -24,7 +14,37 @@
       "preview_url": ""
     },
     {
+      "rank": 2,
+      "title": "27a Pitfield St",
+      "artist": "bassvictim",
+      "album": "Forever",
+      "cover": "https://resources.tidal.com/images/2377a080/a18b/4bc6/8e79/4fbce2ba1348/640x640.jpg",
+      "url": "https://tidal.com/browse/track/529703645",
+      "duration_label": "2:47",
+      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/75/ef/d8/75efd8ef-ea00-ffa8-eb69-4184d418415a/mzaf_8664352154715662537.plus.aac.p.m4a"
+    },
+    {
       "rank": 3,
+      "title": "bray fool",
+      "artist": "campthehills",
+      "album": "bray fool",
+      "cover": "https://resources.tidal.com/images/78888ff7/46d7/44eb/864a/b9e09972bb47/640x640.jpg",
+      "url": "https://tidal.com/browse/track/557243119",
+      "duration_label": "2:52",
+      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/50/c2/45/50c2454e-32eb-ecd0-4ff4-ac1e81d2eacc/mzaf_11243209844020897804.plus.aac.p.m4a"
+    },
+    {
+      "rank": 4,
+      "title": "Anova",
+      "artist": "Hesse Kassel",
+      "album": "La Brea",
+      "cover": "https://resources.tidal.com/images/8da40ea6/abbd/473e/b557/1debb120247b/640x640.jpg",
+      "url": "https://tidal.com/browse/track/418440494",
+      "duration_label": "7:22",
+      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/14/df/a1/14dfa13f-f913-c60d-bc6c-fd7d19a1db58/mzaf_8407304920528146714.plus.aac.p.m4a"
+    },
+    {
+      "rank": 5,
       "title": "Thunder",
       "artist": "Imagine Dragons",
       "album": "Evolve",
@@ -32,26 +52,6 @@
       "url": "https://tidal.com/browse/track/91950975",
       "duration_label": "3:07",
       "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/78/7d/8b/787d8b89-7b57-d3bc-1f9d-6378fad1b4f5/mzaf_5131352572683029126.plus.aac.p.m4a"
-    },
-    {
-      "rank": 4,
-      "title": "Bottle",
-      "artist": "Remi Wolf",
-      "album": "Bottle",
-      "cover": "https://resources.tidal.com/images/2ce894e1/abf9/4357/868d/1f1d43bbe252/640x640.jpg",
-      "url": "https://tidal.com/browse/track/552117597",
-      "duration_label": "4:18",
-      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/12/72/42/127242f9-351b-aab0-0647-29be47627ca0/mzaf_6003777851833186706.plus.aac.p.m4a"
-    },
-    {
-      "rank": 5,
-      "title": "Toda Hora em Vv",
-      "artist": "DJ 2L de Vila Velha",
-      "album": "Toda Hora em Vv",
-      "cover": "https://resources.tidal.com/images/034876b3/1b81/4cb2/8520/a6c721e64b2d/640x640.jpg",
-      "url": "https://tidal.com/browse/track/516190179",
-      "duration_label": "2:23",
-      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/aa/9e/28/aa9e28e5-0089-370a-0839-fc81308499b4/mzaf_18397273591592463169.plus.aac.p.m4a"
     }
   ]
 }
