@@ -14,8 +14,8 @@
       "versions": {
         "1.0.0": {
           "url": "https://eclairfome.github.io/tidal-rpc/pool/eclairfome.tidal-rpc@1.0.0.zip",
-          "sha256": "d45317bdf53c86287b528bd69a35c9107f960013742e2814ade0272f1f045ebb",
-          "size": 15923,
+          "sha256": "c1c61e2d714677ce4e538149832c6e162a2c8093e0a22b86d519f8f1092fbf24",
+          "size": 17876,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
