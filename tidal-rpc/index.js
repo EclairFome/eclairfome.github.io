@@ -1,109 +1,11 @@
 (function(exports, jsxRuntime) {
     Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 
-    // Singleton guard: if a previous instance of tidal-rpc is running in this JS context, stop it cleanly first!
-    var globalScope = typeof globalThis !== "undefined" ? globalThis : (typeof window !== "undefined" ? window : {});
-    if (globalScope.__ECLAIR_TIDAL_RPC_CLEANUP__) {
-        try {
-            console.log("[Tidal-RPC] Cleaning up previous running instance...");
-            globalScope.__ECLAIR_TIDAL_RPC_CLEANUP__();
-        } catch (e) {
-            console.error("[Tidal-RPC] Error cleaning up previous instance:", e);
-        }
-    }
-
-    var v = typeof valenced !== "undefined" ? valenced : (typeof window !== "undefined" ? window.valenced : undefined);
-    var vdt = typeof vendetta !== "undefined" ? vendetta : (typeof window !== "undefined" ? window.vendetta : undefined);
-
-    function findByProps(...props) {
-        // 1. First check Discord internal modules via Valenced lookupModule
-        // IMPORTANT: Must check lookupModule BEFORE Design for non-UI modules like getAssetIds, getAPIBaseURL, post!
-        if (v && v.modules && v.modules.finders && v.modules.finders.lookupModule && v.modules.finders.filters && v.modules.finders.filters.withProps) {
-            try {
-                var lookup = v.modules.finders.lookupModule(v.modules.finders.filters.withProps(...props));
-                if (lookup && lookup[0]) return lookup[0];
-            } catch (e) {}
-        }
-        // 2. Check Vendetta metro findByProps
-        if (vdt && vdt.metro && vdt.metro.findByProps) {
-            try {
-                var found = vdt.metro.findByProps(...props);
-                if (found) return found;
-            } catch (e) {}
-        }
-        // 3. Check Valenced Design components
-        if (v && v.discord && v.discord.design && v.discord.design.Design) {
-            var Design = v.discord.design.Design;
-            var allInDesign = props.every(function(p) { return p in Design; });
-            if (allInDesign) {
-                var res = {};
-                for (var p of props) res[p] = Design[p];
-                return res;
-            }
-        }
-        if (props.length === 1 && props[0] === "ScrollView") {
-            var sv = v?.react?.ReactNative?.ScrollView || (typeof window !== "undefined" && window.ReactNative?.ScrollView);
-            if (sv) return { ScrollView: sv };
-        }
-        // 4. Safe dynamic fallback proxy (checks lookupModule dynamically in case modules initialized late)
-        return new Proxy({}, {
-            get: function(t, p) {
-                if (p === "SET_ACTIVITY") return "SET_ACTIVITY";
-                if (v && v.modules && v.modules.finders && v.modules.finders.lookupModule && v.modules.finders.filters && v.modules.finders.filters.withProps) {
-                    try {
-                        var lateLookup = v.modules.finders.lookupModule(v.modules.finders.filters.withProps(...props));
-                        if (lateLookup && lateLookup[0] && lateLookup[0][p] !== undefined) {
-                            var fn = lateLookup[0][p];
-                            return typeof fn === "function" ? fn.bind(lateLookup[0]) : fn;
-                        }
-                    } catch (e) {}
-                }
-                if (v && v.discord && v.discord.design && v.discord.design.Design && v.discord.design.Design[p]) {
-                    return v.discord.design.Design[p];
-                }
-                if (v && v.react && v.react.ReactNative && v.react.ReactNative[p]) {
-                    return v.react.ReactNative[p];
-                }
-                return function() { return null; };
-            }
-        });
-    }
-
-    function findByStoreName(name) {
-        if (v && v.discord && v.discord.flux && v.discord.flux.Stores && v.discord.flux.Stores[name]) {
-            return v.discord.flux.Stores[name];
-        }
-        if (vdt && vdt.metro && vdt.metro.findByStoreName) {
-            try {
-                var found = vdt.metro.findByStoreName(name);
-                if (found) return found;
-            } catch (e) {}
-        }
-        if (v && v.modules && v.modules.finders && v.modules.finders.lookupModule && v.modules.finders.filters && v.modules.finders.filters.withName) {
-            try {
-                var lookup = v.modules.finders.lookupModule(v.modules.finders.filters.withName(name));
-                if (lookup && lookup[0]) return lookup[0];
-            } catch (e) {}
-        }
-        return new Proxy({}, {
-            get: function(t, p) {
-                var liveStore = (v && v.discord && v.discord.flux && v.discord.flux.Stores && v.discord.flux.Stores[name])
-                    || (vdt && vdt.metro && vdt.metro.findByStoreName && vdt.metro.findByStoreName(name));
-                if (liveStore && liveStore[p]) {
-                    var val = liveStore[p];
-                    return typeof val === "function" ? val.bind(liveStore) : val;
-                }
-                if (p === "getCurrentUser") return function() { return null; };
-                if (p === "getActivities") return function() { return []; };
-                return function() { return null; };
-            }
-        });
-    }
-
-    var FluxDispatcher = (v && v.discord && v.discord.common && v.discord.common.flux && v.discord.common.flux.Dispatcher)
-        || (vdt && vdt.metro && vdt.metro.common && vdt.metro.common.FluxDispatcher)
-        || findByProps("dispatch", "subscribe")
-        || { dispatch: function() {}, subscribe: function() {}, unsubscribe: function() {} };
+    var APP_ID = "1054951789318909972";
+    var PC_VENCORD_APP_ID = "1108588077900898414";
+    var TIDAL_LOGO_URL = "https://cdn.rcd.gg/PreMiD/websites/T/Tidal/assets/logo.png";
+    var DEFAULT_COVER_HASH = "2a96cbd8b46e442fc41c2b86b821562f";
+    var PAUSE_GRACE_MS = 1800000; // 30 minutes
 
     var defaultSettings = {
         username: "EclairFome",
@@ -113,168 +15,518 @@
         showTimestamp: false,
         listeningTo: true,
         showLargeText: true,
-        ignoreYouTubeMusic: false,
-        verboseLogging: false,
-        service: "lastfm",
-        librefmUsername: "",
-        librefmApiKey: "",
-        listenbrainzUsername: "",
-        listenbrainzToken: ""
+        showAlbumInTooltip: true,
+        showDurationInTooltip: true,
+        ignoreList: []
     };
 
-    var pluginStorage = Object.assign({}, defaultSettings);
+    var assetCache = new Map();
+    var fallbackArtCache = new Map();
+    var httpModule = null;
+    var assetUtilsModule = null;
 
-    var g = vdt || {
-        plugin: { storage: pluginStorage },
-        openURL: function(url) { if (typeof window !== "undefined" && window.open) window.open(url); },
-        logger: console
+    var state = {
+        stopped: true,
+        isUpdating: false,
+        updateTimer: null,
+        lastTrackKey: null,
+        lastActivity: null,
+        lastActiveTrack: null,
+        lastActiveTime: 0,
+        lastError: null,
+        lastUpdateAt: null
     };
-    if (!g.plugin) g.plugin = {};
-    if (!g.plugin.storage) g.plugin.storage = pluginStorage;
 
-    var ReactObj = (v && v.react && v.react.React)
-        || (vdt && vdt.metro && vdt.metro.common && vdt.metro.common.React)
-        || (typeof window !== "undefined" ? window.React : undefined)
-        || (typeof React !== "undefined" ? React : {});
+    var storageRef = null;
+    var liveSettings = Object.assign({}, defaultSettings);
 
-    var ReactNativeObj = (v && v.react && v.react.ReactNative)
-        || (vdt && vdt.metro && vdt.metro.common && vdt.metro.common.ReactNative)
-        || (typeof window !== "undefined" ? window.ReactNative : undefined)
-        || {};
+    function getSettings() {
+        var cached = (storageRef && storageRef.cache) || {};
+        return Object.assign({}, defaultSettings, liveSettings, cached);
+    }
 
-    var n = {
-        FluxDispatcher: FluxDispatcher,
-        React: ReactObj,
-        ReactNative: ReactNativeObj,
-        NavigationNative: {
-            useNavigation: function() { return { push: function() {}, goBack: function() {}, navigate: function() {} }; }
+    function getDispatcher() {
+        try {
+            if (typeof valenced !== "undefined" && valenced?.discord?.common?.flux?.Dispatcher) {
+                return valenced.discord.common.flux.Dispatcher;
+            }
+            if (typeof vendetta !== "undefined" && vendetta?.metro?.common?.FluxDispatcher) {
+                return vendetta.metro.common.FluxDispatcher;
+            }
+        } catch (e) {}
+        return null;
+    }
+
+    function getStore(name) {
+        try {
+            if (typeof valenced !== "undefined" && valenced?.discord?.flux?.Stores?.[name]) {
+                return valenced.discord.flux.Stores[name];
+            }
+            if (typeof vendetta !== "undefined" && vendetta?.metro?.findByStoreName) {
+                return vendetta.metro.findByStoreName(name);
+            }
+        } catch (e) {}
+        return null;
+    }
+
+    function resolveDiscordModules() {
+        try {
+            if (!httpModule && typeof valenced !== "undefined" && valenced?.modules?.finders?.lookupModule) {
+                var f = valenced.modules.finders.filters;
+                var m1 = valenced.modules.finders.lookupModule(f.withProps("HTTP", "post"));
+                if (m1 && m1[0] && m1[0].HTTP) httpModule = m1[0].HTTP;
+                if (!httpModule) {
+                    var m2 = valenced.modules.finders.lookupModule(f.withProps("getAPIBaseURL", "post"));
+                    if (m2 && m2[0]) httpModule = m2[0];
+                }
+            }
+            if (!httpModule && typeof vendetta !== "undefined" && vendetta?.metro?.findByProps) {
+                httpModule = vendetta.metro.findByProps("getAPIBaseURL", "get");
+            }
+        } catch (e) {}
+
+        try {
+            if (!assetUtilsModule && typeof valenced !== "undefined" && valenced?.modules?.finders?.lookupModule) {
+                var f2 = valenced.modules.finders.filters;
+                var a1 = valenced.modules.finders.lookupModule(f2.withProps("fetchAssetIds"));
+                if (a1 && a1[0]) assetUtilsModule = a1[0];
+                if (!assetUtilsModule) {
+                    var a2 = valenced.modules.finders.lookupModule(f2.withProps("getAssetIds"));
+                    if (a2 && a2[0]) assetUtilsModule = a2[0];
+                }
+            }
+            if (!assetUtilsModule && typeof vendetta !== "undefined" && vendetta?.metro?.findByProps) {
+                assetUtilsModule = vendetta.metro.findByProps("getAssetIds") || vendetta.metro.findByProps("fetchAssetIds");
+            }
+        } catch (e) {}
+    }
+
+    function dispatchActivity(activity) {
+        if (state.stopped) activity = null;
+        state.lastActivity = activity;
+        if (!activity) state.lastTrackKey = null;
+        var dispatcher = getDispatcher();
+        if (dispatcher && typeof dispatcher.dispatch === "function") {
+            dispatcher.dispatch({
+                type: "LOCAL_ACTIVITY_UPDATE",
+                activity: activity,
+                pid: 2312,
+                socketId: "Multi-Scrobbler@Vendetta"
+            });
         }
-    };
+    }
 
-    var M = {
-        findByProps: findByProps,
-        findByStoreName: findByStoreName
-    };
+    function clearActivity() {
+        state.lastTrackKey = null;
+        state.lastActivity = null;
+        dispatchActivity(null);
+    }
 
-    var Nt = ReactObj;
-    var D = (vdt && vdt.storage) || { useProxy: function() {} };
-    var re = ReactNativeObj;
-    var I = (vdt && vdt.ui && vdt.ui.toasts) || {
-        showToast: function(msg) {
-            if (v && v.discord && v.discord.actions && v.discord.actions.ToastActionCreators && v.discord.actions.ToastActionCreators.open) {
-                v.discord.actions.ToastActionCreators.open({ content: String(msg) });
-            } else {
-                console.log("[Tidal-RPC Toast]", msg);
+    async function resolveExternalAsset(url) {
+        if (!url || (!url.startsWith("http:") && !url.startsWith("https:"))) return null;
+        if (assetCache.has(url)) return assetCache.get(url);
+
+        resolveDiscordModules();
+
+        // 1. Try assetUtilsModule.fetchAssetIds
+        if (assetUtilsModule && typeof assetUtilsModule.fetchAssetIds === "function") {
+            try {
+                var ids = await assetUtilsModule.fetchAssetIds(APP_ID, [url]);
+                if (Array.isArray(ids) && ids[0]) {
+                    assetCache.set(url, ids[0]);
+                    return ids[0];
+                }
+            } catch (e) {}
+        }
+
+        // 2. Try Discord HTTP module POST to /applications/{APP_ID}/external-assets
+        if (httpModule && typeof httpModule.post === "function") {
+            var endpoints = ["/applications/" + APP_ID + "/external-assets"];
+            try {
+                var base = typeof httpModule.getAPIBaseURL === "function" ? httpModule.getAPIBaseURL() : "";
+                if (base) endpoints.push(base + "/applications/" + APP_ID + "/external-assets");
+            } catch (e) {}
+
+            for (var i = 0; i < endpoints.length; i++) {
+                try {
+                    var res = await httpModule.post({
+                        url: endpoints[i],
+                        body: { urls: [url] },
+                        oldFormErrors: true,
+                        rejectWithError: false
+                    });
+                    var body = res && res.body;
+                    if (Array.isArray(body) && body[0] && body[0].external_asset_path) {
+                        var mp = "mp:" + body[0].external_asset_path;
+                        assetCache.set(url, mp);
+                        return mp;
+                    }
+                } catch (e) {}
             }
         }
-    };
-    var S = (vdt && vdt.ui && vdt.ui.assets) || { getAssetIDByName: function() { return 0; } };
-    var J = (v && v.patcher) || (vdt && vdt.patcher) || { after: function() { return function() {}; }, before: function() { return function() {}; }, instead: function() { return function() {}; } };
 
-    var safeComponentProxy = new Proxy(function() { return null; }, {
-        get: function(t, p) {
-            return safeComponentProxy;
+        return null;
+    }
+
+    function formatDuration(sec) {
+        if (!sec || sec < 0) return "0:00";
+        var h = Math.floor(sec / 3600);
+        var m = Math.floor((sec % 3600) / 60);
+        var s = Math.floor(sec % 60);
+        if (h > 0) {
+            return h + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
         }
-    });
+        return m + ":" + String(s).padStart(2, "0");
+    }
 
-    var Qe = (vdt && vdt.ui && vdt.ui.components) || {
-        Forms: safeComponentProxy
-    };
-    if (!Qe.Forms) Qe.Forms = safeComponentProxy;
-
-    var ne = (vdt && vdt.utils) || {
-        findInReactTree: function() { return null; }
-    };
-
-    var q = {};
-    (function(q,g,n,M,Nt,D,re,I,S,J,Qe,ne){"use strict";const d={DEFAULT_APP_NAME:"Music",DEFAULT_TIME_INTERVAL:5,APPLICATION_ID:"1054951789318909972",MIN_UPDATE_INTERVAL:3,LIBREFM_MIN_UPDATE_INTERVAL:60,MAX_RETRY_ATTEMPTS:3,RETRY_DELAY:5e3,SERVICES:{lastfm:{name:"Last.fm",baseUrl:"https://ws.audioscrobbler.com/2.0",requiresApiKey:!0,requiresToken:!1},librefm:{name:"Libre.fm",baseUrl:"https://libre.fm/2.0",requiresApiKey:!0,requiresToken:!1},listenbrainz:{name:"ListenBrainz",baseUrl:"https://api.listenbrainz.org/1",requiresApiKey:!0,requiresToken:!0}},DEFAULT_HEADERS:{},DEFAULT_COVER_HASHES:["2a96cbd8b46e442fc41c2b86b821562f"],TIDAL_LOGO_URL:"https://cdn.rcd.gg/PreMiD/websites/T/Tidal/assets/logo.png",PC_VENCORD_APP_ID:"1108588077900898414",PAUSE_GRACE_MS:18e5,DEFAULT_SETTINGS:{username:"EclairFome",apiKey:"48257fff1da36374e5522726402608c7",appName:"{{artist}} - {{name}}",timeInterval:5,showTimestamp:!1,listeningTo:!0,showLargeText:!0,ignoreYouTubeMusic:!1,verboseLogging:!1,service:"lastfm",librefmUsername:"",librefmApiKey:"",listenbrainzUsername:"",listenbrainzToken:""},API_ERROR_CODES:{2:"Invalid service",3:"Invalid method",4:"Invalid format",5:"Invalid parameters",6:"Invalid resource specified",7:"Invalid session key",8:"Invalid API key",9:"Invalid session",10:"Invalid API signature",11:"Service offline",13:"Invalid method signature supplied",16:"Service temporarily unavailable",26:"Suspended API key",29:"Rate limit exceeded"}};function B(e,r){if(!(e instanceof r))throw new TypeError("Cannot call a class as a function")}function pe(e,r){for(var t=0;t<r.length;t++){var a=r[t];a.enumerable=a.enumerable||!1,a.configurable=!0,"value"in a&&(a.writable=!0),Object.defineProperty(e,a.key,a)}}function O(e,r,t){return r&&pe(e.prototype,r),t&&pe(e,t),e}const{SET_ACTIVITY:$t}=M.findByProps("SET_ACTIVITY"),Ze=M.findByProps("getAssetIds"),be=M.findByProps("getAPIBaseURL","get"),et=M.findByStoreName("SelfPresenceStore"),PtStore=M.findByStoreName("PresenceStore"),he=M.findByStoreName("UserStore"),assetCache=new Map(),fallbackArtCache=new Map();function ae(){E.lastTrackUrl=void 0;E.lastActivity=void 0;return ye(null)}function ye(e){E.pluginStopped&&(ue(),e=null),E.lastActivity=e,n.FluxDispatcher.dispatch({type:"LOCAL_ACTIVITY_UPDATE",activity:e,pid:2312,socketId:"Multi-Scrobbler@Vendetta"})}async function tt(e,r){const t=`${be.getAPIBaseURL()}/applications/${r}/external-assets`,a=await be.post({url:t,body:{urls:e},oldFormErrors:!0,rejectWithError:!1});console.log("[Multi-Scrobbler] External assets response:",JSON.stringify(a));const i=a?.body;return console.log("[Multi-Scrobbler] Response body:",JSON.stringify(i)),Array.isArray(i)?i.map(function(s){return`mp:${s.external_asset_path}`}):[]}async function rt(e,r=d.APPLICATION_ID){if(!e?.length)return[];const k0=e[0];if(e.length===1&&k0&&assetCache.has(k0))return[assetCache.get(k0)];try{const t=await Ze.fetchAssetIds(r,e);if(Array.isArray(t)&&t.length>0&&t[0]){if(e.length===1&&k0)assetCache.set(k0,t[0]);return t}const a=e.filter(function(i){return i&&(i.startsWith("http:")||i.startsWith("https:"))});if(a.length===0)return[];const res=await tt(a,r);if(e.length===1&&k0&&res[0])assetCache.set(k0,res[0]);return res}catch(t){return console.error("[Multi-Scrobbler] Failed to fetch assets:",t),[]}}const R={};R.componentMountErrors=[],R.componentMountCount=0,R.settingsLoadAttempts=0,R.serviceErrors={lastfm:[],librefm:[],listenbrainz:[]},R.apiCallCount=0,R.connectionAttempts=0,R.lastCredentialValidation={lastfm:!1,librefm:!1,listenbrainz:!1};const Q=function(...e){return console.log("[Debug]",...e)},me=function(...e){return console.error("[Debug] Error:",...e)};function j(e,r){R[e]=r,e==="lastError"&&r?me("Error recorded:",r.message):e==="lastTrack"&&r?Q("Track updated:",`${r.artist} - ${r.name}`):e==="currentService"&&r&&Q("Service changed to:",r)}function we(){R.apiCallCount=(R.apiCallCount||0)+1,Q(`API call count: ${R.apiCallCount}`)}function Z(e,r){R.serviceErrors=R.serviceErrors||{lastfm:[],librefm:[],listenbrainz:[]},R.serviceErrors[e]=R.serviceErrors[e]||[],R.serviceErrors[e].push(`${new Date().toISOString()}: ${r}`),R.serviceErrors[e].length>10&&(R.serviceErrors[e]=R.serviceErrors[e].slice(-10)),me(`${e} error:`,r)}function ve(){R.lastSuccessfulUpdate=new Date().toISOString(),Q("Successful update recorded at:",R.lastSuccessfulUpdate)}function ee(e){return ee=Object.setPrototypeOf?Object.getPrototypeOf:function(t){return t.__proto__||Object.getPrototypeOf(t)},ee(e)}function Se(){try{var e=!Boolean.prototype.valueOf.call(Reflect.construct(Boolean,[],function(){}))}catch{}return(Se=function(){return!!e})()}function nt(e){if(e===void 0)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return e}function at(e){"@swc/helpers - typeof";return e&&typeof Symbol<"u"&&e.constructor===Symbol?"symbol":typeof e}function it(e,r){return r&&(at(r)==="object"||typeof r=="function")?r:nt(e)}function ie(e,r,t){return r=ee(r),it(e,Se()?Reflect.construct(r,t||[],ee(e).constructor):r.apply(e,t))}function se(e,r){return se=Object.setPrototypeOf||function(a,i){return a.__proto__=i,a},se(e,r)}function oe(e,r){if(typeof r!="function"&&r!==null)throw new TypeError("Super expression must either be null or a function");e.prototype=Object.create(r&&r.prototype,{constructor:{value:e,writable:!0,configurable:!0}}),r&&se(e,r)}const Re=["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36","Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36","Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15","Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:127.0) Gecko/20100101 Firefox/127.0","Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36","Mozilla/5.0 (X11; Linux x86_64; rv:127.0) Gecko/20100101 Firefox/127.0","Mozilla/5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"];let le=(function(){function e(){B(this,e)}return O(e,[{key:"log",value:function(...r){console.log(`[${this.getServiceName()}]`,...r)}},{key:"logError",value:function(...r){console.error(`[${this.getServiceName()}] Error:`,...r)}},{key:"logVerbose",value:function(...r){console.log(`[${this.getServiceName()}] Verbose:`,...r)}},{key:"handleError",value:async function(r){this.lastError=r.error||0;const t=this.getErrorMessage(r);throw this.logError(t),Z(this.getServiceName().toLowerCase(),t),new Error(`${this.getServiceName()} API Error: ${t}`)}},{key:"getErrorMessage",value:function(r){return r.error&&d.API_ERROR_CODES[r.error]?d.API_ERROR_CODES[r.error]:r.message||r.toString()||"Unknown error"}},{key:"makeRequest",value:async function(r,t={}){try{this.logVerbose(`Making request to: ${r}`),we();const bustUrl=r.includes("audioscrobbler.com")?r+(r.includes("?")?"&":"?")+"_="+Date.now():r;const a=await fetch(bustUrl,{...t,cache:"no-store",headers:{"User-Agent":Re[Math.floor(Math.random()*Re.length)],"Cache-Control":"no-cache, no-store",Pragma:"no-cache",...t.headers}});if(!a.ok){const s=new Error(`HTTP ${a.status}: ${a.statusText}`);throw Z(this.getServiceName().toLowerCase(),s.message),s}const i=await a.json();return i.error&&await this.handleError(i),this.retryCount=0,i}catch(a){if(this.retryCount++,this.retryCount>d.MAX_RETRY_ATTEMPTS)throw this.retryCount=0,Z(this.getServiceName().toLowerCase(),`Max retries exceeded: ${a.message}`),a;return this.logVerbose(`Request failed, retrying (${this.retryCount}/${d.MAX_RETRY_ATTEMPTS})`),await new Promise(function(i){return setTimeout(i,d.RETRY_DELAY)}),this.makeRequest(r,t)}}},{key:"isDefaultCover",value:function(r){return r?d.DEFAULT_COVER_HASHES.some(function(t){return r.includes(t)}):!0}},{key:"processAlbumArt",value:function(r){return!r||this.isDefaultCover(r)?null:r}},{key:"getLastError",value:function(){return this.lastError}},{key:"resetRetryCount",value:function(){this.retryCount=0}}]),e})(),st=(function(e){oe(r,e);function r(){return B(this,r),ie(this,r,arguments)}return O(r,[{key:"getServiceName",value:function(){return"Last.fm"}},{key:"logVerbose",value:function(...t){l.verboseLogging&&console.log(`[${this.getServiceName()}] Verbose:`,...t)}},{key:"validateCredentials",value:async function(){try{if(!l.username||!l.apiKey)throw new Error("Username or API key not set");const t=new URLSearchParams({method:"user.getinfo",user:l.username,api_key:l.apiKey,format:"json"}),a=`${d.SERVICES.lastfm.baseUrl}?${t}`;return await this.makeRequest(a),this.log("Credentials validation successful"),!0}catch(t){return this.logError("Credentials validation failed:",t),!1}}},{key:"fetchLatestScrobble",value:async function(){try{if(!l.username||!l.apiKey)throw new Error("Username or API key not set");this.logVerbose("Fetching latest scrobble for user:",l.username);const t=new URLSearchParams({method:"user.getrecenttracks",user:l.username,api_key:l.apiKey,limit:"1",extended:"1",format:"json"}),a=`${d.SERVICES.lastfm.baseUrl}?${t}`,i=(await this.makeRequest(a))?.recenttracks?.track?.[0];if(!i)throw new Error("No tracks found");this.logVerbose("Raw track data:",i);const rawNowPlaying=!!i["@attr"]?.nowplaying,o=i.date?.uts?parseInt(i.date.uts):Math.floor(Date.now()/1e3),isRecentScrobble=i.date?.uts?(Date.now()-parseInt(i.date.uts)*1e3)<d.PAUSE_GRACE_MS:!1,s=rawNowPlaying||isRecentScrobble,f=function(k,y="name"){return k?typeof k=="string"?k:k["#text"]??k[y]??"":""};const artistName=f(i.artist),albumName=f(i.album,"title");let b=null,h=null,trackInfoArt=null;if(s)try{const k=new URLSearchParams({method:"track.getInfo",track:i.name,artist:artistName,autocorrect:"1",api_key:l.apiKey,format:"json"}),y=`${d.SERVICES.lastfm.baseUrl}?${k}`,v=await this.makeRequest(y);v?.track?.duration&&(b=parseInt(v.track.duration),b>0&&(b=Math.floor(b/1e3),h=o+b));const tImgs=v?.track?.album?.image;if(Array.isArray(tImgs))trackInfoArt=this.processAlbumArt(tImgs.find(function(x){return x.size==="large"})?.["#text"]||tImgs.find(function(x){return x.size==="extralarge"})?.["#text"])}catch(k){this.logVerbose("Failed to fetch track duration:",k)}let P=this.processAlbumArt(i.image?.find(function(k){return k.size==="large"})?.["#text"]||i.image?.find(function(k){return k.size==="extralarge"})?.["#text"])||trackInfoArt;if(!P&&s){const cKey=`${artistName}\0${i.name}\0${albumName}`.toLowerCase();if(fallbackArtCache.has(cKey))P=fallbackArtCache.get(cKey);else{try{const term=encodeURIComponent(`${artistName} ${i.name}`);const itRes=await fetch(`https://itunes.apple.com/search?term=${term}&entity=song&limit=5`);if(itRes.ok){const itJson=await itRes.json();const aLow=artistName.toLowerCase(),tLow=(i.name||"").toLowerCase();const aMatches=(itJson?.results||[]).filter(function(r){const rA=(r.artistName||"").toLowerCase();return rA&&(rA.includes(aLow)||aLow.includes(rA))});const m=aMatches.find(function(r){return r.trackName?.toLowerCase()===tLow})||aMatches[0];const art=m?.artworkUrl100?.replace("100x100bb","512x512bb");if(art)P=art}}catch(e){}fallbackArtCache.set(cKey,P||null)}}const _={name:i.name,artist:artistName,album:albumName,albumArt:P,url:i.url,date:i.date?.["#text"]??"now",nowPlaying:s,loved:i.loved==="1",from:o,to:h,duration:b};return this.logVerbose("Processed track:",_),this.log(`${s?"Now playing":"Last played"}:`,`${_.artist} - ${_.name}`),_}catch(t){throw this.logError("Failed to fetch latest scrobble:",t),t}}}]),r})(le),ot=(function(e){oe(r,e);function r(){return B(this,r),ie(this,r,arguments)}return O(r,[{key:"getServiceName",value:function(){return"Libre.fm"}},{key:"logVerbose",value:function(...t){l.verboseLogging&&console.log(`[${this.getServiceName()}] Verbose:`,...t)}},{key:"validateCredentials",value:async function(){try{const t=l.librefmUsername,a=l.librefmApiKey;if(!t||!a)throw new Error("Username or API key not set for Libre.fm");const i=new URLSearchParams({method:"user.getinfo",user:t,api_key:a,format:"json"}),s=`${d.SERVICES.librefm.baseUrl}?${i}`;return await this.makeRequest(s),this.log("Credentials validation successful"),!0}catch(t){return this.logError("Credentials validation failed:",t),!1}}},{key:"fetchLatestScrobble",value:async function(){try{const t=l.librefmUsername,a=l.librefmApiKey;if(!t||!a)throw new Error("Username or API key not set for Libre.fm");this.logVerbose("Fetching latest scrobble for user:",t);const i=new URLSearchParams({method:"user.getrecenttracks",user:t,api_key:a,limit:"1",extended:"1",format:"json"}),s=`${d.SERVICES.librefm.baseUrl}?${i}`,o=(await this.makeRequest(s))?.recenttracks?.track?.[0];if(!o)throw new Error("No tracks found");this.logVerbose("Raw track data:",o);const f=!!o["@attr"]?.nowplaying,b=o.date?.uts?parseInt(o.date.uts):Math.floor(Date.now()/1e3),h=function(v,C="name"){return v?typeof v=="string"?v:v["#text"]??v[C]??"":""};let P=null,_=null;if(f)try{const v=new URLSearchParams({method:"track.getInfo",track:o.name,artist:h(o.artist),api_key:a,format:"json"}),C=`${d.SERVICES.librefm.baseUrl}?${v}`,$=await this.makeRequest(C);$?.track?.duration&&(P=parseInt($.track.duration),P>0&&(P=Math.floor(P/1e3),_=b+P))}catch(v){this.logVerbose("Failed to fetch track duration:",v)}const k=this.processAlbumArt(o.image?.find(function(v){return v.size==="large"})?.["#text"]),y={name:o.name,artist:h(o.artist),album:h(o.album,"title"),albumArt:k,url:o.url,date:o.date?.["#text"]??"now",nowPlaying:f,loved:o.loved==="1",from:b,to:_,duration:P};return this.logVerbose("Processed track:",y),this.log(`${f?"Now playing":"Last played"}:`,`${y.artist} - ${y.name}`),y}catch(t){throw this.logError("Failed to fetch latest scrobble:",t),t}}}]),r})(le),lt=(function(e){oe(r,e);function r(){return B(this,r),ie(this,r,arguments)}return O(r,[{key:"getServiceName",value:function(){return"ListenBrainz"}},{key:"logVerbose",value:function(...t){l.verboseLogging&&console.log(`[${this.getServiceName()}] Verbose:`,...t)}},{key:"validateCredentials",value:async function(){try{const t=l.listenbrainzUsername,a=l.listenbrainzToken;if(!t)throw new Error("Username not set for ListenBrainz");const i=`${d.SERVICES.listenbrainz.baseUrl}/user/${encodeURIComponent(t)}/listens?count=1`,s={};return a&&(s.Authorization=`Token ${a}`),await this.makeRequest(i,{headers:s}),this.log("Credentials validation successful"),!0}catch(t){return this.logError("Credentials validation failed:",t),!1}}},{key:"fetchLatestScrobble",value:async function(){try{const t=l.listenbrainzUsername,a=l.listenbrainzToken;if(!t)throw new Error("Username not set for ListenBrainz");this.logVerbose("Fetching latest scrobble for user:",t);let i=null;const s=function(y){if(y){if(Array.isArray(y.listens))return y.listens;if(y.payload&&Array.isArray(y.payload.listens))return y.payload.listens;if(y.data&&Array.isArray(y.data.listens))return y.data.listens}};try{const y=`${d.SERVICES.listenbrainz.baseUrl}/user/${encodeURIComponent(t)}/playing-now`,v={};a&&(v.Authorization=`Token ${a}`);const C=await this.makeRequest(y,{headers:v}),$=s(C);$&&$.length>0&&(i=$[0],i.playing_now=!0)}catch(y){this.logVerbose("No currently playing track or failed to fetch:",y)}let o;if(i)o=i,this.logVerbose("Using currently playing track");else{const y=`${d.SERVICES.listenbrainz.baseUrl}/user/${encodeURIComponent(t)}/listens?count=1`,v={};a&&(v.Authorization=`Token ${a}`);const C=await this.makeRequest(y,{headers:v}),$=(function(){if(C){if(Array.isArray(C.listens))return C.listens;if(C.payload&&Array.isArray(C.payload.listens))return C.payload.listens;if(C.data&&Array.isArray(C.data.listens))return C.data.listens}})();if(!$||$.length===0)throw new Error("No listens found");o=$[0],this.logVerbose("Using latest completed listen")}this.logVerbose("Raw listen data:",o);const f=!!o.playing_now,b=o.listened_at||Math.floor(Date.now()/1e3);let h=null,P=null;o.track_metadata.additional_info?.duration_ms&&(h=Math.floor(o.track_metadata.additional_info.duration_ms/1e3),f&&h>0&&(P=b+h));let _=null;o.track_metadata.additional_info?.release_mbid&&(_=`https://coverartarchive.org/release/${o.track_metadata.additional_info.release_mbid}/front`);const k={name:o.track_metadata.track_name,artist:o.track_metadata.artist_name,album:o.track_metadata.release_name||"",albumArt:_,url:o.track_metadata.additional_info?.origin_url||`https://listenbrainz.org/player/${o.track_metadata.additional_info?.recording_mbid||`${encodeURIComponent(o.track_metadata.artist_name)}/${encodeURIComponent(o.track_metadata.track_name)}`}`,date:f?"now":new Date(b*1e3).toISOString(),nowPlaying:f,loved:!1,from:b,to:P,duration:h};return this.logVerbose("Processed track:",k),this.log(`${f?"Now playing":"Last played"}:`,`${k.artist} - ${k.name}`),k}catch(t){throw this.logError("Failed to fetch latest listen:",t),t}}},{key:"getErrorMessage",value:function(t){return t.error?t.error:t.message?t.message:t.toString()||"Unknown error"}}]),r})(le);const K=(function(){function e(){B(this,e),this.serviceInstances=new Map}return O(e,[{key:"getService",value:function(r){this.serviceInstances||(this.serviceInstances=new Map);const t=r||l.service;if(!t)throw new Error("[ServiceFactory] No service type specified and no default service configured");return this.serviceInstances.has(t)||this.serviceInstances.set(t,this.createService(t)),this.serviceInstances.get(t)}},{key:"getCurrentService",value:function(){return this.getService(l.service)}},{key:"createService",value:function(r){switch(r){case"lastfm":return new st;case"librefm":return new ot;case"listenbrainz":return new lt;default:throw new Error(`[ServiceFactory] Unknown service type: ${r}`)}}},{key:"clearCache",value:function(){this.serviceInstances?this.serviceInstances.clear():this.serviceInstances=new Map}},{key:"validateCurrentService",value:function(){return this.getCurrentService().validateCredentials()}},{key:"testService",value:async function(r){try{return await this.getService(r).validateCredentials()}catch(t){return console.error(`[ServiceFactory] Failed to test ${r}:`,t),!1}}},{key:"getSupportedServices",value:function(){return["lastfm","librefm","listenbrainz"]}},{key:"getServiceDisplayName",value:function(r){return this.getService(r).getServiceName()}}],[{key:"getInstance",value:function(){return e.instance||(e.instance=new e),e.instance}}]),e})().getInstance();function Ee(e){if(!e||e<0)return"0:00";const r=Math.floor(e/3600),t=Math.floor(e%3600/60),a=Math.floor(e%60);return r>0?`${r}:${t.toString().padStart(2,"0")}:${a.toString().padStart(2,"0")}`:`${t}:${a.toString().padStart(2,"0")}`}function Te(){return Math.floor(Date.now()/1e3)}var ct=(function(e){return e[e.PLAYING=0]="PLAYING",e[e.STREAMING=1]="STREAMING",e[e.LISTENING=2]="LISTENING",e[e.COMPETING=5]="COMPETING",e})(ct||{});const L=function(...e){return console.log("[Scrobble Plugin]",...e)},z=function(...e){return console.error("[Scrobble Plugin] Error:",...e)},N=function(...e){return l.verboseLogging&&console.log("[Scrobble Plugin] Verbose:",...e)},ce=(function(){function e(){B(this,e)}return O(e,[{key:"updateActivity",value:async function(){if(this._isUpdating)return;this._isUpdating=!0;try{return await this._doUpdateActivity()}finally{this._isUpdating=!1}}},{key:"_doUpdateActivity",value:async function(){if(E.pluginStopped){L("Plugin is stopped; skipping activity updates and clearing timers"),N("Plugin is stopped, skipping update");try{this.stopUpdates(),N("Update timers cleared due to stopped plugin")}catch(t){z("Error while stopping updates for stopped plugin:",t)}return}const r=K.getCurrentService().getServiceName();N(`Fetching latest track from ${r}...`);try{const myUid=he?.getCurrentUser?.()?.id;const allActs=[...(PtStore?.getActivities?.(myUid)||[]),...(et?.getActivities?.()||[])];const pcAct=allActs.find(function(o){return o&&o.application_id===d.PC_VENCORD_APP_ID});if(pcAct){L("PC Vencord MusicRichPresence is active; clearing mobile activity");ae();return}if(l.ignoreList&&l.ignoreList.length>0){const s=allActs.find(function(o){return o&&o.application_id!==d.APPLICATION_ID&&o.name?l.ignoreList.some(function(f){return o.name.toLowerCase().includes(f.toLowerCase())}):!1});if(s){L(`Ignored app (${s.name}) is currently active; clearing activity and skipping updates`);ae();return}}we();let t=await K.getCurrentService().fetchLatestScrobble();if(t&&t.nowPlaying){E.lastActiveTrack=t;E.lastActiveTime=Date.now()}else if(E.lastActiveTrack&&(Date.now()-(E.lastActiveTime||0))<d.PAUSE_GRACE_MS){t={...E.lastActiveTrack,nowPlaying:!0}}if(j("lastTrack",t),!t||!t.nowPlaying){L("No currently playing track reported by service; clearing activity and skipping RPC update");E.lastActiveTrack=void 0;E.lastActiveTime=0;ae();return}const trackKey=`${t.artist}\0${t.name}\0${t.albumArt||""}`;if(E.lastTrackUrl===trackKey&&E.lastActivity){L("Track unchanged; skipping Discord RPC update"),ve(),this.consecutiveFailures=0;return}L(`\u{1F3B5} Track changed: ${t.artist} - ${t.name}`);let a;if(t.nowPlaying&&l.showTimestamp&&t.from){const s=Te();let o=t.from;if(o<s-3600){if(t.duration&&t.duration>0){const f=Math.min(t.duration*.1,30);o=s-f}else o=s;N("had to estimate start time")}a={start:o*1e3},t.to&&(a.end=t.to*1e3)}N(`\u{1F3AF} Preparing RPC update for: ${t.artist} - ${t.name}`);const i={name:l.appName||d.DEFAULT_APP_NAME,flags:0,type:l.listeningTo?2:0,details:t.name,state:`${t.artist}`,status_display_type:1,application_id:d.APPLICATION_ID};if(i.name.includes("{{")){const s={artist:t.artist,name:t.name,album:t.album,service:r};for(const[o,f]of Object.entries(s))i.name=i.name.replace(new RegExp(`{{${o}}}`,"g"),f||"")}if(a&&(i.timestamps=a),!0){const s=t.albumArt?[t.albumArt]:[];let o=s.length?(await rt(s))[0]:void 0;const tidalAsset=(await rt([d.TIDAL_LOGO_URL]))[0];let f="";if(l.showLargeText){if(l.showAlbumInTooltip&&t.album&&(f+=t.album),l.showDurationInTooltip&&t.duration){const b=Ee(t.duration);f?f+=` \u2022 ${b}`:f=b}}if(o){i.assets={large_image:o,...(f?{large_text:f}:{}),...(tidalAsset?{small_image:tidalAsset,small_text:"TIDAL"}:{})}}else{i.assets={...(tidalAsset?{large_image:tidalAsset}:{}),...(f?{large_text:f}:{})}}const tSearch=function(q){return"https://listen.tidal.com/search?q="+encodeURIComponent(q)};i.details_url=tSearch(`${t.artist} ${t.name}`);if(t.artist)i.state_url=tSearch(t.artist);if(t.album&&i.assets)i.assets.large_url=tSearch(`${t.artist} ${t.album}`)}const myUid2=he?.getCurrentUser?.()?.id;const allActs2=[...(PtStore?.getActivities?.(myUid2)||[]),...(et?.getActivities?.()||[])];if(allActs2.some(function(o){return o&&o.application_id===d.PC_VENCORD_APP_ID})){L("PC Vencord became active during fetch; aborting mobile RPC update");ae();return}N("Setting Discord activity:",i),j("lastActivity",i),await ye(i),E.lastTrackUrl=trackKey,this.currentActivity=i,E.lastActivity=i,this.consecutiveFailures=0,this.lastUpdateTime=Te(),ve(),L(`\u2705 RPC updated successfully: ${t.artist} - ${t.name}`)}catch(t){z("Update failed:",t);try{Z(l.service,t.message)}catch(a){z("Failed to record service error:",a)}try{j("lastUpdateError",{message:t.message,service:l.service,lastTrackUrl:E.lastTrackUrl})}catch(a){N("Failed to set debug info for last update error:",a)}this.handleError(t)}}},{key:"handleError",value:function(r){this.consecutiveFailures++,j("lastError",r),z(`Failure ${this.consecutiveFailures}/${d.MAX_RETRY_ATTEMPTS}:`,r.message),this.consecutiveFailures>=d.MAX_RETRY_ATTEMPTS&&(z("Max retry attempts reached, initiating reconnection..."),this.startReconnection())}},{key:"startReconnection",value:function(){var r=this;this.isReconnecting||(this.isReconnecting=!0,this.stopUpdates(),L("Starting reconnection process..."),this.reconnectTimer=setInterval(function(){L("Attempting to reconnect..."),r.initialize().then(function(){L("Reconnection successful!"),r.stopReconnection()}).catch(function(t){z("Reconnection attempt failed:",t.message)})},d.RETRY_DELAY))}},{key:"stopReconnection",value:function(){try{this.reconnectTimer&&(clearInterval(this.reconnectTimer),this.reconnectTimer=void 0),this.isReconnecting=!1,this.consecutiveFailures=0}catch(r){console.error("[Scrobble Plugin] Reconnection cleanup error:",r)}}},{key:"stopUpdates",value:function(){try{this.updateTimer&&(clearInterval(this.updateTimer),this.updateTimer=void 0)}catch(r){console.error("[Scrobble Plugin] Timer cleanup error:",r)}}},{key:"initialize",value:async function(){var r=this;if(E.pluginStopped)throw new Error("Plugin is stopped");const t=K.getCurrentService().getServiceName();L(`Initializing with ${t}...`);try{if(!await K.validateCurrentService())throw new Error(`Invalid credentials for ${t}`);L(`${t} credentials validated successfully`)}catch(o){throw z(`Failed to validate ${t} credentials:`,o),o}this.stopUpdates(),L("\u{1F3B5} checking for already playing songs..."),await this.updateActivity();const a=l.service;let i=d.MIN_UPDATE_INTERVAL;a==="librefm"&&(i=d.LIBREFM_MIN_UPDATE_INTERVAL,L(`Libre.fm active: enforcing ${i}s minimum update interval`));const s=Math.max((Number(l.timeInterval)||d.DEFAULT_SETTINGS.timeInterval)*1e3,i*1e3);this.updateTimer=setInterval(function(){return r.updateActivity()},s),L(`Update timer started with interval: ${s}ms (${s/1e3}s)`)}},{key:"stop",value:function(){if(!E.pluginStopped){L("Stopping plugin..."),E.pluginStopped=!0;try{this.stopUpdates(),this.stopReconnection(),ae(),L("Plugin stopped successfully")}catch(r){console.error("[Scrobble Plugin] Stop error:",r)}}}},{key:"switchService",value:async function(r){if(E.pluginStopped)return;L(`Switching to ${r}...`);const t=!E.pluginStopped;this.stop();try{K.clearCache(),E.lastTrackUrl=void 0,this.currentActivity=void 0,this.lastUpdateTime=0,t&&(E.pluginStopped=!1,await this.initialize())}catch(a){z("Failed to switch service:",a)}}},{key:"getStatus",value:function(){const r=K.getCurrentService().getServiceName();return{running:!E.pluginStopped,service:r,consecutiveFailures:this.consecutiveFailures,isReconnecting:this.isReconnecting,lastTrackUrl:E.lastTrackUrl,updateInterval:this.updateTimer?"Active":"Inactive"}}}],[{key:"getInstance",value:function(){return e.instance||(e.instance=new e),e.instance}}]),e})().getInstance(),ut=function(){return ce.initialize()},ue=function(){return ce.stop()},ft=function(e){return ce.switchService(e)},{ScrollView:F}=M.findByProps("ScrollView"),{TableRowGroup:T,TableSwitchRow:ke,TableCheckboxRow:W,Stack:U,TableRow:u}=M.findByProps("TableSwitchRow","TableCheckboxRow","TableRowGroup","Stack","TableRow"),{TextInput:x}=M.findByProps("TextInput");function gt(){D.useProxy(g.plugin.storage);const[,e]=n.React.useReducer(function(t){return t+1},0),r=async function(){I.showToast("Testing Last.fm connection...",S.getAssetIDByName("ClockIcon"));try{await X.testService("lastfm")?I.showToast("\u2705 Last.fm connection successful!",S.getAssetIDByName("CheckIcon")):I.showToast("\u274C Last.fm connection failed",S.getAssetIDByName("XIcon"))}catch{I.showToast("\u274C Connection error",S.getAssetIDByName("XIcon"))}};return n.React.createElement(F,{style:{flex:1},contentContainerStyle:{padding:10}},n.React.createElement(U,{spacing:8},n.React.createElement(T,{title:"Credentials"},n.React.createElement(U,{spacing:4},n.React.createElement(x,{placeholder:"Last.fm Username",value:c("username"),onChange:function(t){A("username",t),e()},isClearable:!0}),n.React.createElement(x,{placeholder:"Last.fm API Key",value:c("apiKey"),onChange:function(t){A("apiKey",t),e()},secureTextEntry:!0,isClearable:!0}))),n.React.createElement(T,{title:"Actions"},n.React.createElement(u,{label:"Test Connection",subLabel:"Verify your Last.fm credentials",trailing:n.React.createElement(u.Arrow,null),onPress:r}),n.React.createElement(u,{label:"Get API Key",subLabel:"Create a Last.fm API key at last.fm/api/account/create",trailing:n.React.createElement(u.Arrow,null),onPress:async function(){try{await re.Linking.openURL("https://www.last.fm/api/account/create")}catch(t){console.error("Failed to open Last.fm API URL:",t),I.showToast("Failed to open web browser. Please visit: https://www.last.fm/api/account/create",S.getAssetIDByName("XIcon"))}}}))))}function dt(){D.useProxy(g.plugin.storage);const[,e]=n.React.useReducer(function(t){return t+1},0),r=async function(){I.showToast("Testing Libre.fm connection...",S.getAssetIDByName("ClockIcon"));try{await X.testService("librefm")?I.showToast("\u2705 Libre.fm connection successful!",S.getAssetIDByName("CheckIcon")):I.showToast("\u274C Libre.fm connection failed",S.getAssetIDByName("XIcon"))}catch{I.showToast("\u274C Connection error",S.getAssetIDByName("XIcon"))}};return n.React.createElement(F,{style:{flex:1},contentContainerStyle:{padding:10}},n.React.createElement(U,{spacing:8},n.React.createElement(T,{title:"Credentials"},n.React.createElement(U,{spacing:4},n.React.createElement(x,{placeholder:"Libre.fm Username",value:c("librefmUsername"),onChange:function(t){A("librefmUsername",t),e()},isClearable:!0}),n.React.createElement(x,{placeholder:"Libre.fm API Key",value:c("librefmApiKey"),onChange:function(t){A("librefmApiKey",t),e()},secureTextEntry:!0,isClearable:!0}))),n.React.createElement(T,{title:"Actions"},n.React.createElement(u,{label:"Test Connection",subLabel:"Verify your Libre.fm credentials",trailing:n.React.createElement(u.Arrow,null),onPress:r}),n.React.createElement(u,{label:"Get API Key",subLabel:"Create a Last.fm API key (compatible with Libre.fm)",trailing:n.React.createElement(u.Arrow,null),onPress:async function(){try{await re.Linking.openURL("https://www.last.fm/api/account/create")}catch(t){console.error("Failed to open Last.fm API URL:",t),I.showToast("Failed to open web browser. Please visit: https://www.last.fm/api/account/create",S.getAssetIDByName("XIcon"))}}}))))}function pt(){D.useProxy(g.plugin.storage);const[,e]=n.React.useReducer(function(t){return t+1},0),r=async function(){I.showToast("Testing ListenBrainz connection...",S.getAssetIDByName("ClockIcon"));try{await X.testService("listenbrainz")?I.showToast("\u2705 ListenBrainz connection successful!",S.getAssetIDByName("CheckIcon")):I.showToast("\u274C ListenBrainz connection failed",S.getAssetIDByName("XIcon"))}catch{I.showToast("\u274C Connection error",S.getAssetIDByName("XIcon"))}};return n.React.createElement(F,{style:{flex:1},contentContainerStyle:{padding:10}},n.React.createElement(U,{spacing:8},n.React.createElement(T,{title:"Credentials"},n.React.createElement(U,{spacing:4},n.React.createElement(x,{placeholder:"ListenBrainz Username",value:c("listenbrainzUsername"),onChange:function(t){A("listenbrainzUsername",t),e()},isClearable:!0}),n.React.createElement(x,{placeholder:"ListenBrainz Token",value:c("listenbrainzToken"),onChange:function(t){A("listenbrainzToken",t),e()},secureTextEntry:!0,isClearable:!0}))),n.React.createElement(T,{title:"Actions"},n.React.createElement(u,{label:"Test Connection",subLabel:"Verify your ListenBrainz credentials",trailing:n.React.createElement(u.Arrow,null),onPress:r}),n.React.createElement(u,{label:"Get User Token",subLabel:"Get your ListenBrainz user token at listenbrainz.org/settings/",trailing:n.React.createElement(u.Arrow,null),onPress:async function(){try{await re.Linking.openURL("https://listenbrainz.org/settings/")}catch(t){console.error("Failed to open ListenBrainz settings URL:",t),I.showToast("Failed to open web browser. Please visit: https://listenbrainz.org/settings/",S.getAssetIDByName("XIcon"))}}}))))}function bt(){D.useProxy(g.plugin.storage);const[,e]=n.React.useReducer(function(t){return t+1},0),r=c("service")==="librefm";return n.React.createElement(F,{style:{flex:1},contentContainerStyle:{padding:10}},n.React.createElement(U,{spacing:8},n.React.createElement(T,{title:"Activity Display"},n.React.createElement(U,{spacing:4},n.React.createElement(x,{placeholder:`App Name (Default: ${d.DEFAULT_SETTINGS.appName})`,value:c("appName",d.DEFAULT_SETTINGS.appName),onChange:function(t){A("appName",t),e()},isClearable:!0}),r?n.React.createElement(u,{label:"Update Interval Disabled",subLabel:"Libre.fm requires a fixed 60s update interval to prevent rate limiting",disabled:!0,dimmed:!0}):n.React.createElement(x,{placeholder:`Update Interval (Default: ${d.DEFAULT_SETTINGS.timeInterval}s)`,value:String(c("timeInterval",d.DEFAULT_SETTINGS.timeInterval)),onChange:function(t){const a=Number(t);a>=d.MIN_UPDATE_INTERVAL&&(A("timeInterval",a),e())},keyboardType:"numeric",isClearable:!0}))),n.React.createElement(T,{title:"About Display Settings"},n.React.createElement(u,{label:"App Name",subLabel:"The name shown in Discord for your activity"}),n.React.createElement(u,{label:"Update Interval",subLabel:"How often the plugin checks for new tracks (in seconds)"}),n.React.createElement(u,{label:"Minimum Interval",subLabel:`The plugin will never check more frequently than ${d.MIN_UPDATE_INTERVAL} seconds`}))))}function ht(){D.useProxy(g.plugin.storage);const[e,r]=n.React.useState(null),[t,a]=n.React.useState(!0),[i,s]=n.React.useState(0),o={name:"Bohemian Rhapsody",artist:"Queen",artists:["Queen"],album:"A Night at the Opera",image:null,nowPlaying:!0,duration:354,startTime:Math.floor(Date.now()/1e3)-120},f=function(p){return p?Array.isArray(p)?p.filter(function(m){return m&&typeof m=="string"}):p["#text"]?p["#text"].split(/[,;&]/).map(function(m){return m.trim()}).filter(function(m){return m.length>0}):typeof p=="string"?p.split(/[,;&]/).map(function(m){return m.trim()}).filter(function(m){return m.length>0}):["Unknown Artist"]:["Unknown Artist"]},b=function(p){return!p||p.length===0?"Unknown Artist":p.length===1?p[0]:p.length===2?`${p[0]} & ${p[1]}`:`${p.slice(0,-1).join(", ")} & ${p[p.length-1]}`};n.React.useEffect(function(){(async function(){if(!c("username")||!c("apiKey")){r(o),a(!1);return}try{a(!0);const p=await(await fetch(`https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${c("username")}&api_key=${c("apiKey")}&format=json&limit=1`)).json();if(p.recenttracks&&p.recenttracks.track&&p.recenttracks.track.length>0){const m=p.recenttracks.track[0],G=f(m.artist);let Je=180;try{const Pt=G[0]||"Unknown Artist",de=await(await fetch(`https://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key=${c("apiKey")}&artist=${encodeURIComponent(Pt)}&track=${encodeURIComponent(m.name)}&format=json&u[...]`)).json();de.track&&de.track.duration&&(Je=Math.floor(de.track.duration/1e3))}catch{console.log("Could not fetch track duration, using default")}r({name:m.name||"Unknown Track",artist:b(G),artists:G,album:m.album?.["#text"]||"Unknown Album",image:m.image?.[2]?.["#text"]||m.image?.[1]?.["#text"]||null,nowPlaying:m["@attr"]?.nowplaying==="true",duration:Je,startTime:m["@attr"]?.nowplaying==="true"?Math.floor(Date.now()/1e3)-60:null})}else r(o)}catch{console.error("Failed to fetch preview data, using fallback:"),r(o)}finally{a(!1)}})()},[c("username"),c("apiKey")]),n.React.useEffect(function(){if(!e?.nowPlaying||!c("showTimestamp"))return;const p=setInterval(function(){if(e.startTime&&e.duration){const m=Math.floor(Date.now()/1e3)-e.startTime,G=Math.min(m/e.duration,1);s(G)}},1e3);return function(){return clearInterval(p)}},[e,c("showTimestamp")]);const h=function(p){const m=Math.floor(p/60),G=Math.floor(p%60);return`${m}:${G.toString().padStart(2,"0")}`},P=function(){let p="";if(c("showAlbumInTooltip")&&e?.album&&(p+=`on ${e.album}`),c("showDurationInTooltip")&&e?.duration){const m=` \u2022 ${h(e.duration)}`;p?p+=m:p=h(e.duration)}return p||"No tooltip text"},_=function(){return e?.duration?e.nowPlaying?{current:i*e.duration,total:e.duration,progress:i}:{current:e.duration*.3,total:e.duration,progress:.3}:{current:0,total:0,progress:0}},k=c("listeningTo")?"Listening to":"Playing",y=c("appName")||"Music",v=c("showLargeText",!0),C=c("showTimestamp",!1);if(t)return n.React.createElement(n.ReactNative.View,{style:w.container},n.React.createElement(n.ReactNative.View,{style:w.loadingContent},n.React.createElement(n.ReactNative.View,{style:w.loadingSpinner}),n.React.createElement(n.ReactNative.Text,{style:w.loadingText},"Loading preview...")));if(!e)return n.React.createElement(n.ReactNative.View,{style:w.container},n.React.createElement(n.ReactNative.Text,{style:w.centeredText},"Unable to load preview"));const $=_(),Ye=P();return n.React.createElement(n.ReactNative.View,{style:w.previewContainer},n.React.createElement(n.ReactNative.View,{style:w.header},n.React.createElement(n.ReactNative.Text,{style:w.activityType},k," ",y),n.React.createElement(n.ReactNative.Text,{style:w.rpcPreviewText,numberOfLines:1},"RPC Preview")),n.React.createElement(n.ReactNative.View,{style:w.content},n.React.createElement(n.ReactNative.View,{style:w.albumArt},e.image?n.React.createElement(n.ReactNative.Image,{source:{uri:e.image},style:w.albumImage,resizeMode:"cover"}):n.React.createElement(n.ReactNative.Text,{style:w.musicIcon},"\u{1F3B5}")),n.React.createElement(n.ReactNative.View,{style:w.trackInfo},n.React.createElement(n.ReactNative.Text,{style:w.trackName,numberOfLines:1},e.name),n.React.createElement(n.ReactNative.Text,{style:w.artistName,numberOfLines:1},e.artist),v&&Ye!=="No tooltip text"&&n.React.createElement(n.ReactNative.Text,{style:w.tooltipText,numberOfLines:1},Ye),C&&e.duration?n.React.createElement(n.ReactNative.View,{style:w.progressContainer},n.React.createElement(n.ReactNative.Text,{style:w.timeText},h($.current)),n.React.createElement(n.ReactNative.View,{style:w.progressBar},n.React.createElement(n.ReactNative.View,{style:[w.progressFill,{width:`${$.progress*100}%`}]})),n.React.createElement(n.ReactNative.Text,{style:w.timeText},h($.total))):null)))}const w=n.ReactNative.StyleSheet.create({container:{backgroundColor:"#1e1f22",borderRadius:12,padding:16,marginHorizontal:10,marginBottom:16,borderWidth:1,borderColor:"#3a3c41",alignItems:"center",justifyContent:"center",minHeight:120},loadingContent:{alignItems:"center",justifyContent:"center"},loadingSpinner:{width:20,height:20,borderRadius:10,borderWidth:2,borderColor:"#5865f2",borderTopColor:"transparent",marginBottom:8},previewContainer:{backgroundColor:"#1e1f22",borderRadius:12,padding:16,marginHorizontal:10,marginBottom:16,borderWidth:1,borderColor:"#3a3c41"},header:{flexDirection:"row",justifyContent:"space-between",alignItems:"center",marginBottom:12,gap:8},content:{flexDirection:"row",alignItems:"center"},albumArt:{width:80,height:80,backgroundColor:"#2b2d31",borderRadius:12,justifyContent:"center",alignItems:"center",marginRight:16,borderWidth:1,borderColor:"#40444b",overflow:"hidden",flexShrink:0},trackInfo:{flex:1,minWidth:0},progressContainer:{flexDirection:"row",alignItems:"center",gap:8,marginTop:6},progressBar:{flex:1,height:2,backgroundColor:"#2b2d31",borderRadius:3,overflow:"hidden"},progressFill:{height:2,backgroundColor:"#5865f2",borderRadius:3},loadingText:{color:"#949ba4",fontSize:14,fontWeight:"500"},centeredText:{color:"#949ba4",fontSize:14,fontWeight:"500",textAlign:"center"},activityType:{color:"#dbdee1",fontSize:14,fontWeight:"600",flex:1},rpcPreviewText:{color:"#80848e",fontSize:12,fontStyle:"italic",flexShrink:0},albumImage:{width:80,height:80,borderRadius:12},musicIcon:{color:"#80848e",fontSize:32},trackName:{color:"#ffffff",fontSize:16,fontWeight:"700",marginBottom:4},artistName:{color:"#b5bac1",fontSize:14,fontWeight:"500",marginBottom:4},tooltipText:{color:"#80848e",fontSize:12,fontStyle:"italic",marginBottom:6},timeText:{color:"#80848e",fontSize:11,fontWeight:"500",minWidth:35,textAlign:"center"}});function yt(){D.useProxy(g.plugin.storage);const[,e]=n.React.useReducer(function(s){return s+1},0),r=c("listeningTo",d.DEFAULT_SETTINGS.listeningTo),t=c("showTimestamp",d.DEFAULT_SETTINGS.showTimestamp),a=function(){const s=!r;A("listeningTo",s),!s&&t&&A("showTimestamp",!1),e()},i=function(){r&&(A("showTimestamp",!t),e())};return n.React.createElement(F,{style:{flex:1},contentContainerStyle:{padding:10}},n.React.createElement(ht,null),n.React.createElement(U,{spacing:8},n.React.createElement(T,{title:"RPC Display Options"},n.React.createElement(W,{label:"Show as Listening",subLabel:"Display as 'Listening to' instead of 'Playing'",checked:r,onPress:a}),n.React.createElement(W,{label:"Show Tooltip Text",subLabel:"Show album name and track duration in Discord activity tooltip",checked:c("showLargeText",!0),onPress:function(){const s=c("showLargeText",!0);A("showLargeText",!s),e()}}),!r&&n.React.createElement(u,{label:"Timestamp Unavailable",subLabel:"Enable 'Show as Listening' to use timestamp feature",disabled:!0,dimmed:!0}),n.React.createElement(W,{label:"Show Timestamp",subLabel:"Display track progress and duration",checked:t,onPress:i,disabled:!r}),n.React.createElement(W,{label:"Show Album in Tooltip",subLabel:"Include album name in the tooltip text",checked:c("showAlbumInTooltip",!0),onPress:function(){const s=c("showAlbumInTooltip",!0);A("showAlbumInTooltip",!s),e()}}),n.React.createElement(W,{label:"Show Duration in Tooltip",subLabel:"Include track duration in the tooltip text",checked:c("showDurationInTooltip",!0),onPress:function(){const s=c("showDurationInTooltip",!0);A("showDurationInTooltip",!s),e()}}))))}function mt(){D.useProxy(g.plugin.storage);const[,e]=n.React.useReducer(function(s){return s+1},0),[r,t]=n.React.useState(""),a=function(){if(!r.trim()){I.showToast("Please enter an app name",S.getAssetIDByName("Small"));return}const s=c("ignoreList",[]);s.includes(r.trim())?I.showToast("App already in ignore list",S.getAssetIDByName("Warning")):(A("ignoreList",[...s,r.trim()]),t(""),e(),I.showToast("App added to ignore list",S.getAssetIDByName("Check")))},i=function(s){const o=c("ignoreList",[]);A("ignoreList",o.filter(function(f){return f!==s})),e(),I.showToast("App removed from ignore list",S.getAssetIDByName("Check"))};return n.React.createElement(F,{style:{flex:1},contentContainerStyle:{padding:10}},n.React.createElement(U,{spacing:8},n.React.createElement(T,{title:"Add App to Ignore"},n.React.createElement(U,{spacing:4},n.React.createElement(x,{placeholder:"Enter app name",value:r,onChange:t,isClearable:!0,onSubmitEditing:a,returnKeyType:"done"}))),n.React.createElement(T,null,n.React.createElement(u,{label:"Add to Ignore List",subLabel:"Add the current app name to your ignore list",trailing:n.React.createElement(u.Arrow,null),onPress:a})),c("ignoreList",[]).length>0&&n.React.createElement(T,{title:"Ignored Apps"},c("ignoreList",[]).map(function(s,o){return n.React.createElement(u,{key:o,label:s,trailing:n.React.createElement(n.ReactNative.TouchableOpacity,{onPress:function(){return i(s)},style:{padding:8,backgroundColor:"#ff4d4d",borderRadius:12,width:24,height:24,justifyContent:"center",alignItems:"center"}},n.React.createElement(n.ReactNative.Image,{source:S.getAssetIDByName("TrashIcon"),style:{width:14,height:14,tintColor:"#ffffff"}}))})})),n.React.createElement(T,{title:"About Ignore List"},n.React.createElement(u,{label:"How it Works",subLabel:"When any app in your ignore list is active, your music status will be hidden"}),n.React.createElement(u,{label:"Detection",subLabel:"Apps are detected by their Discord activity name"}),n.React.createElement(u,{label:"Examples",subLabel:"Spotify, YouTube Music, Kizzy, Metrolist, echo"}))))}function wt(){D.useProxy(g.plugin.storage);const[,e]=n.React.useReducer(function(r){return r+1},0);return n.React.createElement(F,{style:{flex:1},contentContainerStyle:{padding:10}},n.React.createElement(U,{spacing:8},n.React.createElement(T,{title:"Logging Options"},n.React.createElement(ke,{label:"Verbose Logging",subLabel:"Enable detailed console logging for debugging",value:c("verboseLogging",d.DEFAULT_SETTINGS.verboseLogging),onValueChange:function(r){A("verboseLogging",r),e()}})),n.React.createElement(T,{title:"Debug Information"},n.React.createElement(u,{label:"Console Logging",subLabel:"Logs are written to the browser/app console when verbose is enabled"}),n.React.createElement(u,{label:"Error Tracking",subLabel:"Connection errors and API failures are automatically logged"})),n.React.createElement(T,{title:"Log Information"},n.React.createElement(u,{label:"API Calls",subLabel:"All API requests are logged when verbose is enabled"}),n.React.createElement(u,{label:"Track Updates",subLabel:"Song changes and RPC updates are logged"}),n.React.createElement(u,{label:"Error Details",subLabel:"Connection errors and retries are logged"}))))}var Ie,Ae,Le,Ce,Pe,Ne,$e,Ue,_e,Me,De,xe,ze,Fe,Ve,Be,Oe;(Ie=g.plugin.storage).username||(Ie.username="EclairFome"),(Ae=g.plugin.storage).apiKey||(Ae.apiKey="48257fff1da36374e5522726402608c7"),(!g.plugin.storage.appName||g.plugin.storage.appName==="Music"||g.plugin.storage.appName==="TIDAL")&&(g.plugin.storage.appName="{{artist}} - {{name}}"),(Ce=g.plugin.storage).timeInterval??(Ce.timeInterval=5),(Pe=g.plugin.storage).showTimestamp??(Pe.showTimestamp=!1),(Ne=g.plugin.storage).listeningTo??(Ne.listeningTo=!0),($e=g.plugin.storage).verboseLogging??($e.verboseLogging=!1),(Ue=g.plugin.storage).service??(Ue.service="lastfm"),(_e=g.plugin.storage).librefmUsername??(_e.librefmUsername=""),(Me=g.plugin.storage).librefmApiKey??(Me.librefmApiKey=""),(De=g.plugin.storage).listenbrainzUsername??(De.listenbrainzUsername=""),(xe=g.plugin.storage).listenbrainzToken??(xe.listenbrainzToken=""),(ze=g.plugin.storage).addToSidebar??(ze.addToSidebar=!0),(Fe=g.plugin.storage).showLargeText??(Fe.showLargeText=!0),(Ve=g.plugin.storage).ignoreList??(Ve.ignoreList=[]),(Be=g.plugin.storage).showAlbumInTooltip??(Be.showAlbumInTooltip=!0),(Oe=g.plugin.storage).showDurationInTooltip??(Oe.showDurationInTooltip=!0);const c=function(e,r){return g.plugin.storage[e]??r},A=function(e,r){return g.plugin.storage[e]=r},X=(function(){function e(){B(this,e)}return O(e,null,[{key:"getServiceDisplayName",value:function(r){switch(r){case"lastfm":return"Last.fm";case"librefm":return"Libre.fm";case"listenbrainz":return"ListenBrainz";default:return"Unknown"}}},{key:"testService",value:async function(r){try{switch(r){case"lastfm":return await this.testLastFmConnection();case"librefm":return await this.testLibreFmConnection();case"listenbrainz":return await this.testListenBrainzConnection();default:return!1}}catch(t){return console.error(`Error testing ${r}:`,t),!1}}},{key:"testLastFmConnection",value:async function(){const r=c("username"),t=c("apiKey");if(!r||!t)return!1;try{return!(await(await fetch(`https://ws.audioscrobbler.com/2.0/?method=user.getinfo&user=${r}&api_key=${t}&format=json`)).json()).error}catch(a){return console.error("Last.fm connection test failed:",a),!1}}},{key:"testLibreFmConnection",value:async function(){const r=c("librefmUsername"),t=c("librefmApiKey");if(!r||!t)return!1;try{return!(await(await fetch(`https://libre.fm/2.0/?method=user.getinfo&user=${r}&api_key=${t}&format=json`)).json()).error}catch(a){return console.error("Libre.fm connection test failed:",a),!1}}},{key:"testListenBrainzConnection",value:async function(){const r=c("listenbrainzUsername"),t=c("listenbrainzToken");if(!r)return!1;try{const a={"Content-Type":"application/json"};return t&&(a.Authorization=`Token ${t}`),(await fetch(`https://api.listenbrainz.org/1/user/${r}/listen-count`,{headers:a})).status===200}catch(a){return console.error("ListenBrainz connection test failed:",a),!1}}}]),e})();function Ke(){D.useProxy(g.plugin.storage);const e=n.NavigationNative.useNavigation(),[,r]=n.React.useReducer(function(i){return i+1},0),t=c("service"),a=function(i){switch(i){case"lastfm":return c("username")&&c("apiKey")?"\u2705 Configured":"\u274C Missing credentials";case"librefm":return c("librefmUsername")&&c("librefmApiKey")?"\u2705 Configured":"\u274C Missing credentials";case"listenbrainz":return c("listenbrainzUsername")?"\u2705 Configured":"\u274C Missing username";default:return"\u2753 Unknown"}};return n.React.createElement(F,{style:{flex:1},contentContainerStyle:{padding:10}},n.React.createElement(U,{spacing:8},n.React.createElement(T,{title:"Active Service"},n.React.createElement(u,{label:"Current Service",subLabel:t?`Using: ${X.getServiceDisplayName(t)}`:"No service selected"}),["lastfm","librefm","listenbrainz"].map(function(i){return n.React.createElement(W,{key:i,label:X.getServiceDisplayName(i),subLabel:a(i),checked:t===i,onPress:function(){i!==t&&(A("service",i),r())}})})),n.React.createElement(T,{title:"Service Configuration"},n.React.createElement(u,{label:"Last.fm Settings",subLabel:"Configure Last.fm credentials and options",trailing:n.React.createElement(u.Arrow,null),onPress:function(){return e.push("VendettaCustomPage",{title:"Last.fm Settings",render:gt})}}),n.React.createElement(u,{label:"Libre.fm Settings",subLabel:"Configure Libre.fm credentials and options",trailing:n.React.createElement(u.Arrow,null),onPress:function(){return e.push("VendettaCustomPage",{title:"Libre.fm Settings",render:dt})}}),n.React.createElement(u,{label:"ListenBrainz Settings",subLabel:"Configure ListenBrainz credentials and options",trailing:n.React.createElement(u.Arrow,null),onPress:function(){return e.push("VendettaCustomPage",{title:"ListenBrainz Settings",render:pt})}})),n.React.createElement(T,{title:"Plugin Configuration"},n.React.createElement(u,{label:"Display Settings",subLabel:"Customize app name and update interval",trailing:n.React.createElement(u.Arrow,null),onPress:function(){return e.push("VendettaCustomPage",{title:"Display Settings",render:bt})}}),n.React.createElement(u,{label:"RPC Customization",subLabel:"Customize Discord rich presence display options",trailing:n.React.createElement(u.Arrow,null),onPress:function(){return e.push("VendettaCustomPage",{title:"RPC Customization",render:yt})}}),n.React.createElement(u,{label:"Ignore List",subLabel:"Configure apps that should hide your status",trailing:n.React.createElement(u.Arrow,null),onPress:function(){return e.push("VendettaCustomPage",{title:"Ignore List Settings",render:mt})}}),n.React.createElement(u,{label:"Logging Settings",subLabel:"Configure logging and debugging options",trailing:n.React.createElement(u.Arrow,null),onPress:function(){return e.push("VendettaCustomPage",{title:"Logging Settings",render:wt})}}),n.React.createElement(ke,{label:"Add to Sidebar",subLabel:"Show plugin in Discord settings",value:c("addToSidebar",!1),onValueChange:function(i){A("addToSidebar",i),r()}})),n.React.createElement(T,{title:"About"},n.React.createElement(u,{label:"Multi Scrobbler",subLabel:"Show off your music status from multiple services"}),n.React.createElement(u,{label:"Author",subLabel:"kmmiio99o"}),n.React.createElement(u,{label:"Version",subLabel:"1.3.2"}))))}const{FormSection:vt,FormRow:fe}=Qe.Forms,{TableRowIcon:St}=M.findByProps("TableRowIcon"),H=window.bunny,Ge=H?.metro?.findByPropsLazy("getRootNavigationRef"),ge=H?.metro?.findByPropsLazy("SETTING_RENDERER_CONFIG"),je=H?.metro?.findByPropsLazy("createList"),We=H?.metro?.findByNameLazy("SettingsOverviewScreen",!1);function Rt({tabs:e}){const r=n.NavigationNative.useNavigation();return n.React.createElement(fe,{label:e.title(),leading:n.React.createElement(fe.Icon,{source:e.icon}),trailing:n.React.createElement(n.React.Fragment,{},[e.trailing?e.trailing():null,n.React.createElement(fe.Arrow,{key:"arrow"})]),onPress:function(){const t=e.page;r.navigate("VendettaCustomPage",{title:e.title(),render:function(){return n.React.createElement(t)}})}})}function Et(e,r){try{r.push(J.after("default",H?.metro?.findByPropsLazy(["renderTitle","sections"],!1),function(t,a){const i=ne.findInReactTree(a.props.children,function(s){return s.type?.name==="UserSettingsOverview"});i&&r.push(J.after("render",i.type.prototype,function(s,o){const f=ne.findInReactTree(o.props.children,function(b){return b?.children?.[1]?.type===vt})?.children;if(f){const b=f.findIndex(function(h){return["BILLING_SETTINGS","PREMIUM_SETTINGS"].includes(h?.props?.label)});f.splice(-~b||4,0,n.React.createElement(Rt,{key:e.key,tabs:e}))}}))},!0))}catch(t){g.logger.info("Panel UI patch failed graciously \u{1F494}",t)}}function Tt(e,r){if(!ge||!Ge){console.warn("[LastFm] Missing required constants for tabs UI patch");return}const t={[e.key]:{type:"pressable",useTitle:e.title,title:e.title,icon:e.icon,IconComponent:e.icon&&function(){return n.React.createElement(St,{source:e.icon})},usePredicate:e.predicate,useTrailing:e.trailing,onPress:function(){const s=Ge.getRootNavigationRef(),o=e.page;s.navigate("VendettaCustomPage",{title:e.title(),render:function(){return n.React.createElement(o)}})},withArrow:!0}};let a=ge.SETTING_RENDERER_CONFIG;Object.defineProperty(ge,"SETTING_RENDERER_CONFIG",{enumerable:!0,configurable:!0,get:function(){return{...a,...t}},set(s){a=s}});const i=Symbol("pinToSettings meow meow");try{if(!je)return;r.push(J.after("createList",je,function(s){if(!s[0][i]){s[0][i]=!0;const[o]=s,f=o.sections?.find(function(b){return["Bunny","Revenge","Kettu","Vencore","ShiggyCord"].some(function(h){return b.label===h&&b.title===h})});f?.settings&&(f.settings=[...f.settings,e.key])}}))}catch{if(!We)return;r.push(J.after("default",We,function(s,o){if(!s[0][i]){s[0][i]=!0;const{sections:f}=ne.findInReactTree(o,function(h){return h.props?.sections}).props,b=f?.find(function(h){return["Bunny","Revenge","Kettu","Vencore","ShiggyCord"].some(function(P){return h.label===P&&h.title===P})});b?.settings&&(b.settings=[...b.settings,e.key])}}))}}function kt(e){const r=[];let t=!1;const a=e.predicate||function(){return!0};return e.predicate=function(){return t?!1:a()},Et(e,r),Tt(e,r),r.push(function(){return t=!0}),function(){for(const i of r)i()}}function qe(){if(!g.plugin.storage.addToSidebar)return console.log("[Multi Scrobbler] Sidebar disabled in settings"),function(){};console.log("[Multi Scrobbler] Patching sidebar using custom patchSettingsPin...");try{const e=kt({key:"LastFmScrobbler",icon:S.getAssetIDByName("MusicIcon"),title:function(){return"Multi Scrobbler"},predicate:function(){return g.plugin.storage.addToSidebar===!0},page:Ke});return console.log("[Multi Scrobbler] Successfully patched sidebar"),e}catch(e){return console.error("[Multi Scrobbler] Failed to patch sidebar:",e),function(){}}}var Xe;const E={pluginStopped:!1,lastActivity:void 0,updateInterval:void 0,lastTrackUrl:void 0};let V;const He=d.DEFAULT_SETTINGS;Object.keys(He).forEach(function(e){g.plugin.storage[e]=g.plugin.storage[e]??He[e]}),(Xe=g.plugin.storage).addToSidebar??(Xe.addToSidebar=!1);const l=new Proxy(g.plugin.storage,{get(e,r){return e[r]},set(e,r,t){return e[r]=t,!0}});let te=0;const It=3,At=5e3;async function Y(){try{await ut(),te=0,console.log("[Multi-Scrobbler] Successfully connected")}catch(e){console.error("[Multi-Scrobbler] Initialization error:",e),te++,te<It?(console.log(`[Multi-Scrobbler] Retrying connection... (attempt ${te})`),setTimeout(Y,At)):console.error("[Multi-Scrobbler] Failed to connect after multiple attempts")}}async function Lt(){if(!l.service){console.log("[Multi-Scrobbler] No service selected. Please configure a service in settings.");return}let e="Unknown";try{e=K.getCurrentService().getServiceName()}catch(a){console.error("[Multi-Scrobbler] Failed to determine current service name:",a)}const r=l.service;let t=!1;switch(r){case"lastfm":t=!!(l.username&&l.apiKey);break;case"librefm":t=!!(l.librefmUsername&&l.librefmApiKey);break;case"listenbrainz":t=!!l.listenbrainzUsername;break}if(!t){console.error(`[Multi-Scrobbler] Missing credentials for ${e}. Please configure in settings.`);return}if(console.log(`[Multi-Scrobbler] Starting with ${e}...`),he.getCurrentUser()){Y();}else{setTimeout(function(){if(!E.pluginStopped&&!ce.updateTimer)Y();},1500);const a=function(){he.getCurrentUser()&&(n.FluxDispatcher.unsubscribe("CONNECTION_OPEN",a),!ce.updateTimer&&Y())};n.FluxDispatcher.subscribe("CONNECTION_OPEN",a);}}var Ct={onLoad(){if(console.log("[Multi-Scrobbler] Loading..."),E.pluginStopped=!1,l.addToSidebar!==!1)try{V=qe(),console.log("[Multi-Scrobbler] Sidebar patched successfully")}catch(e){console.error("[Multi-Scrobbler] Failed to patch sidebar:",e)}Lt()},onUnload(){if(console.log("[Multi-Scrobbler] Unloading..."),E.pluginStopped=!0,V)try{V(),V=void 0,console.log("[Multi-Scrobbler] Sidebar unpatched")}catch(e){console.error("[Multi-Scrobbler] Failed to unpatch sidebar:",e)}ue()},async onSettingsUpdate(e){const r=l.service,t=e.service,a=l.addToSidebar,i=e.addToSidebar;if(Object.assign(l,e),a!==i){if(i)try{V=qe(),console.log("[Multi-Scrobbler] Sidebar enabled")}catch(s){console.error("[Multi-Scrobbler] Failed to enable sidebar:",s)}else if(V){try{V()}catch(s){console.error("[Multi-Scrobbler] Failed to unpatch sidebar:",s)}V=void 0,console.log("[Multi-Scrobbler] Sidebar disabled")}}if(r!==t&&t){console.log(`[Multi-Scrobbler] Service changed from ${r||"none"} to ${t}`);try{await ft(t)}catch(s){console.error("[Multi-Scrobbler] Failed to switch service:",s)}}else if(!E.pluginStopped&&l.service)Y();else if(!l.service){console.log("[Multi-Scrobbler] Service unselected, stopping plugin...");try{ue()}catch(s){console.error("[Multi-Scrobbler] Error while stopping due to service unselected:",s)}}},onDiscordReconnect(){E.pluginStopped||(console.log("[Multi-Scrobbler] Discord reconnected, reinitializing..."),Y())},settings:Ke};return q.d=d,q.X=X,q.ce=ce,q.ae=ae,q.currentSettings=l,q.default=Ct,q.pluginState=E,Object.defineProperty(q,"__esModule",{value:!0}),q})(q, g, n, M, Nt, D, re, I, S, J, Qe, ne);
-
-    var Ct = q.default;
-    var ce = q.ce;
-    var ae = q.ae;
-    var valencedJsonStorage = null;
-
-    // Instant PC <-> Mobile handoff listener:
-    // Whenever Discord receives a PRESENCE_UPDATES event for our own user (e.g. PC Vencord starts or stops),
-    // immediately clear mobile activity or trigger a re-check without waiting for the 5-second poll!
-    var UserStore = findByStoreName("UserStore");
-    var PresenceStore = findByStoreName("PresenceStore");
-    var SelfPresenceStore = findByStoreName("SelfPresenceStore");
-    var lastPcActiveState = false;
-
-    function checkPcPresenceImmediate(event) {
-        if (q.pluginState && q.pluginState.pluginStopped) return;
+    function isPcVencordActive() {
         try {
-            var myUid = UserStore && UserStore.getCurrentUser && UserStore.getCurrentUser()?.id;
+            var UserStore = getStore("UserStore");
+            var PresenceStore = getStore("PresenceStore");
+            var SelfPresenceStore = getStore("SelfPresenceStore");
+            var myUid = UserStore && typeof UserStore.getCurrentUser === "function" ? UserStore.getCurrentUser()?.id : null;
+            var acts = [];
+            if (PresenceStore && typeof PresenceStore.getActivities === "function" && myUid) {
+                var pActs = PresenceStore.getActivities(myUid);
+                if (Array.isArray(pActs)) acts.push.apply(acts, pActs);
+            }
+            if (SelfPresenceStore && typeof SelfPresenceStore.getActivities === "function") {
+                var sActs = SelfPresenceStore.getActivities();
+                if (Array.isArray(sActs)) acts.push.apply(acts, sActs);
+            }
+            return acts.some(function(a) {
+                return a && a.application_id === PC_VENCORD_APP_ID;
+            });
+        } catch (e) {
+            return false;
+        }
+    }
+
+    async function fetchLatestLastFmTrack(cfg) {
+        if (!cfg.username || !cfg.apiKey) {
+            throw new Error("Last.fm username or API key not set");
+        }
+        var qs = "method=user.getrecenttracks&user=" + encodeURIComponent(cfg.username) +
+                 "&api_key=" + encodeURIComponent(cfg.apiKey) +
+                 "&limit=1&extended=1&format=json&_=" + Date.now();
+        var url = "https://ws.audioscrobbler.com/2.0/?" + qs;
+        var res = await fetch(url, {
+            headers: {
+                "Cache-Control": "no-cache, no-store",
+                "Pragma": "no-cache"
+            }
+        });
+        if (!res.ok) throw new Error("Last.fm HTTP " + res.status);
+        var json = await res.json();
+        if (json.error) throw new Error(json.message || ("Last.fm Error " + json.error));
+
+        var track = json?.recenttracks?.track?.[0];
+        if (!track) return null;
+
+        var rawNowPlaying = !!(track["@attr"] && track["@attr"].nowplaying);
+        var uts = track.date && track.date.uts ? parseInt(track.date.uts, 10) : Math.floor(Date.now() / 1000);
+        var isRecentScrobble = (track.date && track.date.uts) ? ((Date.now() - (uts * 1000)) < PAUSE_GRACE_MS) : false;
+        var nowPlaying = rawNowPlaying || isRecentScrobble;
+
+        var extractText = function(obj, fallbackKey) {
+            if (!obj) return "";
+            if (typeof obj === "string") return obj;
+            return obj["#text"] || obj[fallbackKey || "name"] || "";
+        };
+
+        var trackName = track.name || "Unknown Track";
+        var artistName = extractText(track.artist, "name") || "Unknown Artist";
+        var albumName = extractText(track.album, "title") || "";
+
+        var cleanArt = function(artUrl) {
+            if (!artUrl || typeof artUrl !== "string") return null;
+            if (artUrl.includes(DEFAULT_COVER_HASH)) return null;
+            return artUrl;
+        };
+
+        var durationSec = null;
+        var endTimestamp = null;
+        var trackInfoArt = null;
+
+        if (nowPlaying) {
+            try {
+                var infoQs = "method=track.getInfo&track=" + encodeURIComponent(trackName) +
+                             "&artist=" + encodeURIComponent(artistName) +
+                             "&autocorrect=1&api_key=" + encodeURIComponent(cfg.apiKey) +
+                             "&format=json&_=" + Date.now();
+                var infoRes = await fetch("https://ws.audioscrobbler.com/2.0/?" + infoQs);
+                if (infoRes.ok) {
+                    var infoJson = await infoRes.json();
+                    var durMs = infoJson?.track?.duration ? parseInt(infoJson.track.duration, 10) : 0;
+                    if (durMs > 0) {
+                        durationSec = Math.floor(durMs / 1000);
+                        endTimestamp = uts + durationSec;
+                    }
+                    var tImgs = infoJson?.track?.album?.image;
+                    if (Array.isArray(tImgs)) {
+                        var lg = tImgs.find(function(x) { return x.size === "extralarge"; }) || tImgs.find(function(x) { return x.size === "large"; });
+                        if (lg) trackInfoArt = cleanArt(lg["#text"]);
+                    }
+                }
+            } catch (e) {}
+        }
+
+        var imgArr = Array.isArray(track.image) ? track.image : [];
+        var primaryImg = imgArr.find(function(x) { return x.size === "extralarge"; }) || imgArr.find(function(x) { return x.size === "large"; });
+        var albumArt = cleanArt(primaryImg && primaryImg["#text"]) || trackInfoArt;
+
+        // iTunes high-res cover fallback
+        if (!albumArt && nowPlaying) {
+            var cKey = (artistName + "\0" + trackName + "\0" + albumName).toLowerCase();
+            if (fallbackArtCache.has(cKey)) {
+                albumArt = fallbackArtCache.get(cKey);
+            } else {
+                try {
+                    var term = encodeURIComponent(artistName + " " + trackName);
+                    var itRes = await fetch("https://itunes.apple.com/search?term=" + term + "&entity=song&limit=5");
+                    if (itRes.ok) {
+                        var itJson = await itRes.json();
+                        var aLow = artistName.toLowerCase();
+                        var tLow = trackName.toLowerCase();
+                        var results = Array.isArray(itJson?.results) ? itJson.results : [];
+                        var aMatches = results.filter(function(r) {
+                            var rA = (r.artistName || "").toLowerCase();
+                            return rA && (rA.includes(aLow) || aLow.includes(rA));
+                        });
+                        var match = aMatches.find(function(r) { return (r.trackName || "").toLowerCase() === tLow; }) || aMatches[0];
+                        var art = match?.artworkUrl100 ? match.artworkUrl100.replace("100x100bb", "512x512bb") : null;
+                        if (art) albumArt = art;
+                    }
+                } catch (e) {}
+                fallbackArtCache.set(cKey, albumArt || null);
+            }
+        }
+
+        return {
+            name: trackName,
+            artist: artistName,
+            album: albumName,
+            albumArt: albumArt,
+            url: track.url || (artistName + " - " + trackName),
+            nowPlaying: nowPlaying,
+            from: uts,
+            to: endTimestamp,
+            duration: durationSec
+        };
+    }
+
+    async function updateActivity() {
+        if (state.stopped || state.isUpdating) return;
+        state.isUpdating = true;
+        try {
+            if (isPcVencordActive()) {
+                if (state.lastActivity) {
+                    console.log("[Tidal-RPC] PC Vencord is active; clearing mobile presence");
+                    clearActivity();
+                }
+                return;
+            }
+
+            var cfg = getSettings();
+            var track = await fetchLatestLastFmTrack(cfg);
+
+            if (state.stopped) return;
+
+            if (track && track.nowPlaying) {
+                state.lastActiveTrack = track;
+                state.lastActiveTime = Date.now();
+            } else if (state.lastActiveTrack && (Date.now() - (state.lastActiveTime || 0)) < PAUSE_GRACE_MS) {
+                track = Object.assign({}, state.lastActiveTrack, { nowPlaying: true });
+            }
+
+            if (!track || !track.nowPlaying) {
+                state.lastActiveTrack = null;
+                state.lastActiveTime = 0;
+                if (state.lastActivity) clearActivity();
+                return;
+            }
+
+            var trackKey = track.artist + "\0" + track.name + "\0" + (track.albumArt || "");
+            if (state.lastTrackKey === trackKey && state.lastActivity) {
+                state.lastUpdateAt = new Date().toLocaleTimeString();
+                return;
+            }
+
+            var appName = cfg.appName || "{{artist}} - {{name}}";
+            if (appName.includes("{{")) {
+                appName = appName
+                    .replace(/\{\{artist\}\}/g, track.artist || "")
+                    .replace(/\{\{name\}\}/g, track.name || "")
+                    .replace(/\{\{album\}\}/g, track.album || "")
+                    .replace(/\{\{service\}\}/g, "Last.fm");
+            }
+
+            var activity = {
+                name: appName,
+                flags: 0,
+                type: cfg.listeningTo !== false ? 2 : 0,
+                details: track.name,
+                state: track.artist,
+                status_display_type: 1,
+                application_id: APP_ID
+            };
+
+            if (cfg.showTimestamp && track.from) {
+                var nowSec = Math.floor(Date.now() / 1000);
+                var startSec = track.from;
+                if (startSec < nowSec - 3600) startSec = nowSec;
+                activity.timestamps = { start: startSec * 1000 };
+                if (track.to) activity.timestamps.end = track.to * 1000;
+            }
+
+            var largeAsset = track.albumArt ? await resolveExternalAsset(track.albumArt) : null;
+            var tidalAsset = await resolveExternalAsset(TIDAL_LOGO_URL);
+
+            if (state.stopped) return;
+            // Re-check PC Vencord after async asset resolution so we never collide with Desktop!
+            if (isPcVencordActive()) {
+                clearActivity();
+                return;
+            }
+
+            var largeText = "";
+            if (cfg.showLargeText !== false) {
+                if (cfg.showAlbumInTooltip !== false && track.album) {
+                    largeText += track.album;
+                }
+                if (cfg.showDurationInTooltip !== false && track.duration) {
+                    var dStr = formatDuration(track.duration);
+                    largeText = largeText ? (largeText + " \u2022 " + dStr) : dStr;
+                }
+            }
+
+            var assets = {};
+            if (largeAsset) {
+                assets.large_image = largeAsset;
+                if (largeText) assets.large_text = largeText;
+                if (tidalAsset) {
+                    assets.small_image = tidalAsset;
+                    assets.small_text = "TIDAL";
+                }
+            } else {
+                if (tidalAsset) assets.large_image = tidalAsset;
+                if (largeText) assets.large_text = largeText;
+            }
+
+            var tSearch = function(q) { return "https://listen.tidal.com/search?q=" + encodeURIComponent(q); };
+            activity.details_url = tSearch(track.artist + " " + track.name);
+            if (track.artist) activity.state_url = tSearch(track.artist);
+            if (track.album && (assets.large_image || assets.large_text)) {
+                assets.large_url = tSearch(track.artist + " " + track.album);
+            }
+            if (Object.keys(assets).length > 0) {
+                activity.assets = assets;
+            }
+
+            dispatchActivity(activity);
+            state.lastTrackKey = trackKey;
+            state.lastError = null;
+            state.lastUpdateAt = new Date().toLocaleTimeString();
+        } catch (err) {
+            state.lastError = err?.message || String(err);
+            console.error("[Tidal-RPC] Update error:", err);
+        } finally {
+            state.isUpdating = false;
+        }
+    }
+
+    function onPresenceUpdateEvent(event) {
+        if (state.stopped) return;
+        try {
+            var UserStore = getStore("UserStore");
+            var myUid = UserStore && typeof UserStore.getCurrentUser === "function" ? UserStore.getCurrentUser()?.id : null;
             if (!myUid) return;
 
-            var pcActInEvent = false;
+            var pcNowActive = false;
             var eventForMe = false;
             if (event) {
                 if (event.user && event.user.id === myUid && Array.isArray(event.activities)) {
                     eventForMe = true;
-                    pcActInEvent = event.activities.some(function(o) { return o && o.application_id === q.d.PC_VENCORD_APP_ID; });
+                    pcNowActive = event.activities.some(function(a) { return a && a.application_id === PC_VENCORD_APP_ID; });
                 } else if (Array.isArray(event.updates)) {
-                    for (var u of event.updates) {
+                    for (var i = 0; i < event.updates.length; i++) {
+                        var u = event.updates[i];
                         if (u && u.user && u.user.id === myUid) {
                             eventForMe = true;
-                            if (Array.isArray(u.activities) && u.activities.some(function(o) { return o && o.application_id === q.d.PC_VENCORD_APP_ID; })) {
-                                pcActInEvent = true;
+                            if (Array.isArray(u.activities) && u.activities.some(function(a) { return a && a.application_id === PC_VENCORD_APP_ID; })) {
+                                pcNowActive = true;
                             }
                         }
                     }
                 }
             }
 
-            var allActs = [
-                ...((PresenceStore && PresenceStore.getActivities && PresenceStore.getActivities(myUid)) || []),
-                ...((SelfPresenceStore && SelfPresenceStore.getActivities && SelfPresenceStore.getActivities()) || [])
-            ];
-            var pcActInStore = allActs.some(function(o) { return o && o.application_id === q.d.PC_VENCORD_APP_ID; });
-            var pcAct = pcActInEvent || pcActInStore;
-
-            if (pcAct) {
-                if (!lastPcActiveState || (q.pluginState && q.pluginState.lastActivity)) {
-                    lastPcActiveState = true;
-                    console.log("[Tidal-RPC] PC Vencord detected via live event/store - immediately clearing mobile activity!");
-                    if (ae) ae();
+            if (pcNowActive || isPcVencordActive()) {
+                if (state.lastActivity) {
+                    console.log("[Tidal-RPC] Instant handoff: PC Vencord active -> clearing mobile presence");
+                    clearActivity();
                 }
-            } else if (lastPcActiveState && eventForMe) {
-                lastPcActiveState = false;
-                console.log("[Tidal-RPC] PC Vencord stopped - immediately checking mobile scrobble!");
-                if (ce && ce.updateActivity) {
-                    ce.updateActivity();
-                }
+            } else if (eventForMe && !state.lastActivity) {
+                console.log("[Tidal-RPC] Instant handoff: PC Vencord stopped -> restoring mobile presence");
+                updateActivity();
             }
         } catch (e) {}
     }
 
-    function subscribePresenceEvents() {
-        try {
-            FluxDispatcher.subscribe("PRESENCE_UPDATES", checkPcPresenceImmediate);
-            FluxDispatcher.subscribe("PRESENCE_UPDATE", checkPcPresenceImmediate);
-        } catch (e) {}
+    function startPolling() {
+        stopPolling();
+        state.stopped = false;
+        var dispatcher = getDispatcher();
+        if (dispatcher && typeof dispatcher.subscribe === "function") {
+            try {
+                dispatcher.subscribe("PRESENCE_UPDATES", onPresenceUpdateEvent);
+                dispatcher.subscribe("PRESENCE_UPDATE", onPresenceUpdateEvent);
+            } catch (e) {}
+        }
+        updateActivity();
+        var cfg = getSettings();
+        var intervalMs = Math.max((Number(cfg.timeInterval) || 5) * 1000, 3000);
+        state.updateTimer = setInterval(updateActivity, intervalMs);
     }
 
-    function unsubscribePresenceEvents() {
-        try {
-            FluxDispatcher.unsubscribe("PRESENCE_UPDATES", checkPcPresenceImmediate);
-            FluxDispatcher.unsubscribe("PRESENCE_UPDATE", checkPcPresenceImmediate);
-        } catch (e) {}
+    function stopPolling() {
+        state.stopped = true;
+        if (state.updateTimer) {
+            clearInterval(state.updateTimer);
+            state.updateTimer = null;
+        }
+        var dispatcher = getDispatcher();
+        if (dispatcher && typeof dispatcher.unsubscribe === "function") {
+            try {
+                dispatcher.unsubscribe("PRESENCE_UPDATES", onPresenceUpdateEvent);
+                dispatcher.unsubscribe("PRESENCE_UPDATE", onPresenceUpdateEvent);
+            } catch (e) {}
+        }
+        clearActivity();
     }
 
-    globalScope.__ECLAIR_TIDAL_RPC_CLEANUP__ = function() {
-        unsubscribePresenceEvents();
-        if (Ct && Ct.onUnload) Ct.onUnload();
-    };
+    async function testLastFmConnection(username, apiKey) {
+        if (!username || !apiKey) return false;
+        try {
+            var res = await fetch("https://ws.audioscrobbler.com/2.0/?method=user.getinfo&user=" + encodeURIComponent(username) + "&api_key=" + encodeURIComponent(apiKey) + "&format=json&_=" + Date.now());
+            var json = await res.json();
+            return !json.error;
+        } catch (e) {
+            return false;
+        }
+    }
 
-    function ValencedSettingsComponent(props) {
-        var R = ReactObj;
-        var jsonStorage = (props && props.api && props.api.jsonStorage) || valencedJsonStorage;
-        var liveSettings = (jsonStorage && typeof jsonStorage.use === "function") 
-            ? jsonStorage.use() 
-            : g.plugin.storage;
-        var current = Object.assign({}, defaultSettings, liveSettings);
+    function SettingsComponent(props) {
+        var R = (typeof valenced !== "undefined" && valenced?.react?.React)
+            || (typeof vendetta !== "undefined" && vendetta?.metro?.common?.React)
+            || (typeof window !== "undefined" && window.React);
+        var RN = (typeof valenced !== "undefined" && valenced?.react?.ReactNative)
+            || (typeof vendetta !== "undefined" && vendetta?.metro?.common?.ReactNative)
+            || (typeof window !== "undefined" && window.ReactNative) || {};
+
+        var js = (props && props.api && props.api.jsonStorage) || storageRef;
+        var hooked = (js && typeof js.use === "function") ? js.use() : {};
+        var current = Object.assign({}, defaultSettings, liveSettings, hooked);
 
         var userState = R.useState(current.username || "EclairFome");
         var username = userState[0], setUsername = userState[1];
@@ -294,26 +546,30 @@
         var msgState = R.useState("");
         var statusMsg = msgState[0], setStatusMsg = msgState[1];
 
-        var update = function(key, val) {
-            if (jsonStorage && typeof jsonStorage.set === "function") {
-                jsonStorage.set({ [key]: val });
+        var updateSetting = function(key, val) {
+            liveSettings[key] = val;
+            if (js && typeof js.set === "function") {
+                try { js.set({ [key]: val }); } catch (e) {}
             }
-            g.plugin.storage[key] = val;
-            if (Ct && Ct.onSettingsUpdate) {
-                var updated = Object.assign({}, g.plugin.storage, { [key]: val });
-                Ct.onSettingsUpdate(updated);
+            state.lastTrackKey = null;
+            if (!state.stopped) {
+                updateActivity();
             }
         };
 
-        var Design = (v && v.discord && v.discord.design && v.discord.design.Design) || {};
-        var Page = (v && v.components && v.components.Page) || function(e) { return e.children; };
-        var ScrollView = (v && v.react && v.react.ReactNative && v.react.ReactNative.ScrollView) || re.ScrollView || function(e) { return e.children; };
+        var Design = (typeof valenced !== "undefined" && valenced?.discord?.design?.Design) || {};
+        var Page = (typeof valenced !== "undefined" && valenced?.components?.Page) || function(e) { return e.children; };
+        var ScrollView = RN.ScrollView || function(e) { return e.children; };
         var Stack = Design.Stack || function(e) { return e.children; };
         var TableRowGroup = Design.TableRowGroup || function(e) { return e.children; };
         var TableRow = Design.TableRow || function(e) { return e.children; };
         var TableSwitchRow = Design.TableSwitchRow;
         var TextInput = Design.TextInput;
         var Button = Design.Button;
+
+        var currentTrackLabel = state.lastActiveTrack
+            ? (state.lastActiveTrack.artist + " - " + state.lastActiveTrack.name)
+            : "None detected yet";
 
         return R.createElement(ScrollView, { keyboardShouldPersistTaps: "handled" },
             R.createElement(Page, null,
@@ -325,7 +581,7 @@
                             defaultValue: username,
                             onChange: function(val) {
                                 setUsername(val);
-                                update("username", val);
+                                updateSetting("username", val);
                             }
                         }) : null,
                         TextInput ? R.createElement(TextInput, {
@@ -334,18 +590,18 @@
                             defaultValue: apiKey,
                             onChange: function(val) {
                                 setApiKey(val);
-                                update("apiKey", val);
+                                updateSetting("apiKey", val);
                             }
                         }) : null
                     ),
                     R.createElement(TableRowGroup, { title: "Display Options" },
                         TableSwitchRow ? R.createElement(TableSwitchRow, {
-                            label: "Display Playing Activity",
-                            subLabel: "Show TIDAL music status on your Discord profile",
+                            label: "Display as Listening to",
+                            subLabel: "Show 'Listening to Artist - Song' on your profile",
                             value: listeningTo,
                             onValueChange: function(val) {
                                 setListeningTo(val);
-                                update("listeningTo", val);
+                                updateSetting("listeningTo", val);
                             }
                         }) : null,
                         TableSwitchRow ? R.createElement(TableSwitchRow, {
@@ -354,16 +610,16 @@
                             value: showTimestamp,
                             onValueChange: function(val) {
                                 setShowTimestamp(val);
-                                update("showTimestamp", val);
+                                updateSetting("showTimestamp", val);
                             }
                         }) : null,
                         TableSwitchRow ? R.createElement(TableSwitchRow, {
-                            label: "Show Large Cover Text",
-                            subLabel: "Display album name and duration on cover",
+                            label: "Show Album & Duration Text",
+                            subLabel: "Display album name and track length on activity",
                             value: showLargeText,
                             onValueChange: function(val) {
                                 setShowLargeText(val);
-                                update("showLargeText", val);
+                                updateSetting("showLargeText", val);
                             }
                         }) : null
                     ),
@@ -372,20 +628,30 @@
                             label: "Account",
                             subLabel: username ? ("Connected as: " + username) : "No username set"
                         }),
+                        R.createElement(TableRow, {
+                            label: "Latest Scrobble",
+                            subLabel: currentTrackLabel + (state.lastUpdateAt ? (" (" + state.lastUpdateAt + ")") : "")
+                        }),
+                        state.lastError ? R.createElement(TableRow, {
+                            label: "Last Error",
+                            subLabel: String(state.lastError)
+                        }) : null,
                         statusMsg ? R.createElement(TableRow, {
                             label: "Diagnostic",
                             subLabel: statusMsg
                         }) : null,
                         Button ? R.createElement(Button, {
-                            text: "Test Last.fm Connection",
+                            text: "Test Last.fm & Refresh Now",
                             variant: "primary",
                             onPress: async function() {
-                                setStatusMsg("Testing connection...");
-                                try {
-                                    var ok = await q.X.testService("lastfm");
-                                    setStatusMsg(ok ? "✅ Connected to Last.fm successfully!" : "❌ Failed to connect. Check username/API key.");
-                                } catch (e) {
-                                    setStatusMsg("❌ Error: " + (e?.message || e));
+                                setStatusMsg("Testing Last.fm & refreshing presence...");
+                                var ok = await testLastFmConnection(username, apiKey);
+                                if (ok) {
+                                    state.lastTrackKey = null;
+                                    await updateActivity();
+                                    setStatusMsg("✅ Connected & refreshed! Track: " + (state.lastActiveTrack ? (state.lastActiveTrack.artist + " - " + state.lastActiveTrack.name) : "No active track"));
+                                } else {
+                                    setStatusMsg("❌ Failed to connect. Check username/API key.");
                                 }
                             }
                         }) : null
@@ -395,57 +661,58 @@
         );
     }
 
-    var isRunning = false;
+    var pluginObj;
+    if (typeof plugin === "function") {
+        // Pure Valenced plugin registration — do NOT mutate the returned object!
+        pluginObj = plugin({
+            jsonStorage: {
+                load: true,
+                default: defaultSettings
+            },
+            start: function(ctx) {
+                try {
+                    if (ctx && ctx.jsonStorage) {
+                        storageRef = ctx.jsonStorage;
+                        if (ctx.jsonStorage.cache) {
+                            Object.assign(liveSettings, ctx.jsonStorage.cache);
+                        }
+                    }
+                    // Pre-register Discord modules via Valenced getModules if available
+                    if (typeof valenced !== "undefined" && valenced?.modules?.finders?.getModules && ctx?.cleanup) {
+                        var f = valenced.modules.finders.filters;
+                        ctx.cleanup(
+                            valenced.modules.finders.getModules(f.withProps("HTTP", "post"), function(m) {
+                                if (m && m.HTTP) httpModule = m.HTTP;
+                            }),
+                            valenced.modules.finders.getModules(f.withProps("fetchAssetIds"), function(m) {
+                                if (m) assetUtilsModule = m;
+                            })
+                        );
+                    }
+                    startPolling();
+                    if (ctx && typeof ctx.cleanup === "function") {
+                        ctx.cleanup(function() {
+                            stopPolling();
+                        });
+                    }
+                } catch (e) {
+                    console.error("[Tidal-RPC] Error in start:", e);
+                }
+            },
+            stop: function() {
+                stopPolling();
+            },
+            SettingsComponent: SettingsComponent
+        });
+    } else {
+        // Fallback for Kettu / Vendetta
+        pluginObj = {
+            onLoad: function() { startPolling(); },
+            onUnload: function() { stopPolling(); },
+            settings: SettingsComponent
+        };
+    }
 
-    var pluginDef = {
-        jsonStorage: {
-            load: true,
-            default: defaultSettings
-        },
-        start: function(ctx) {
-            console.log("[Tidal-RPC] Valenced start called (isRunning=" + isRunning + ")");
-            if (ctx && ctx.jsonStorage) {
-                valencedJsonStorage = ctx.jsonStorage;
-                var cached = ctx.jsonStorage.cache || (ctx.jsonStorage.get && ctx.jsonStorage.get()) || {};
-                Object.assign(g.plugin.storage, cached);
-            }
-            if (isRunning) {
-                console.log("[Tidal-RPC] Already running, skipping duplicate start");
-                return;
-            }
-            isRunning = true;
-            subscribePresenceEvents();
-            if (Ct && Ct.onLoad) Ct.onLoad();
-        },
-        stop: function(ctx) {
-            console.log("[Tidal-RPC] Valenced stop called");
-            isRunning = false;
-            unsubscribePresenceEvents();
-            if (Ct && Ct.onUnload) Ct.onUnload();
-        },
-        SettingsComponent: ValencedSettingsComponent,
-        settings: ValencedSettingsComponent,
-        onLoad: function() {
-            if (isRunning) return;
-            isRunning = true;
-            subscribePresenceEvents();
-            if (Ct && Ct.onLoad) return Ct.onLoad();
-        },
-        onUnload: function() {
-            isRunning = false;
-            unsubscribePresenceEvents();
-            if (Ct && Ct.onUnload) return Ct.onUnload();
-        }
-    };
-
-    var finalExport = typeof plugin === "function" ? plugin(pluginDef) : pluginDef;
-    finalExport.SettingsComponent = ValencedSettingsComponent;
-    finalExport.settings = ValencedSettingsComponent;
-    finalExport.start = pluginDef.start;
-    finalExport.stop = pluginDef.stop;
-    finalExport.onLoad = pluginDef.onLoad;
-    finalExport.onUnload = pluginDef.onUnload;
-
-    exports.default = finalExport;
+    exports.default = pluginObj;
     return exports;
-})({}, typeof valenced !== "undefined" && valenced?.react?.ReactJSXRuntime);
+})({}, typeof valenced !== "undefined" ? valenced.react.ReactJSXRuntime : undefined);
