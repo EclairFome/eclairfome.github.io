@@ -1,0 +1,31 @@
+{
+  "format": 1,
+  "name": "EclairFome's Plugins",
+  "description": "Custom Discord mobile plugins by EclairFome.",
+  "plugins": {
+    "eclairfome.tidal-rpc": {
+      "name": "Tidal Music Presence",
+      "description": "Displays TIDAL listening status via Last.fm scrobbles, seamlessly yielding when PC is active.",
+      "author": "EclairFome",
+      "icon": "MusicIcon",
+      "channels": {
+        "latest": "1.0.0"
+      },
+      "versions": {
+        "1.0.0": {
+          "url": "https://eclairfome.github.io/tidal-rpc/pool/eclairfome.tidal-rpc@1.0.0.zip",
+          "sha256": "d45317bdf53c86287b528bd69a35c9107f960013742e2814ade0272f1f045ebb",
+          "size": 15923,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    }
+  }
+}
