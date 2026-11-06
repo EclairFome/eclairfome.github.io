@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Dynamically renders the "My top songs of the month" TIDAL widget
  * with interactive 30-second audio previews and spinning 70s vinyl animation.
  */
@@ -217,7 +217,7 @@
 
     const tracks = Array.isArray(data.tracks) ? data.tracks.slice(0, 5) : [];
     if (subtitleEl) {
-      subtitleEl.textContent = `${data.period_label || "My Most Listened"} • Click a track for 30s preview`;
+      subtitleEl.textContent = "Updated often • Click a track for 30s preview";
     }
 
     const maxPlays = tracks.reduce((max, t) => Math.max(max, Number(t.plays) || 0), 0);
