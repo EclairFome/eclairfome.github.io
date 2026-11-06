@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-05",
+  "updated_at": "2026-11-06",
   "period_label": "Last 30 Days • My Most Listened",
   "source": "TIDAL",
   "tracks": [
@@ -15,6 +15,16 @@
     },
     {
       "rank": 2,
+      "title": "bray fool",
+      "artist": "campthehills",
+      "album": "bray fool",
+      "cover": "https://resources.tidal.com/images/78888ff7/46d7/44eb/864a/b9e09972bb47/640x640.jpg",
+      "url": "https://tidal.com/browse/track/557243119",
+      "duration_label": "2:52",
+      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/50/c2/45/50c2454e-32eb-ecd0-4ff4-ac1e81d2eacc/mzaf_11243209844020897804.plus.aac.p.m4a"
+    },
+    {
+      "rank": 3,
       "title": "27a Pitfield St",
       "artist": "bassvictim",
       "album": "Forever",
@@ -24,7 +34,7 @@
       "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/75/ef/d8/75efd8ef-ea00-ffa8-eb69-4184d418415a/mzaf_8664352154715662537.plus.aac.p.m4a"
     },
     {
-      "rank": 3,
+      "rank": 4,
       "title": "Anova",
       "artist": "Hesse Kassel",
       "album": "La Brea",
@@ -32,16 +42,6 @@
       "url": "https://tidal.com/browse/track/418440494",
       "duration_label": "7:22",
       "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/14/df/a1/14dfa13f-f913-c60d-bc6c-fd7d19a1db58/mzaf_8407304920528146714.plus.aac.p.m4a"
-    },
-    {
-      "rank": 4,
-      "title": "bray fool",
-      "artist": "campthehills",
-      "album": "bray fool",
-      "cover": "https://resources.tidal.com/images/78888ff7/46d7/44eb/864a/b9e09972bb47/640x640.jpg",
-      "url": "https://tidal.com/browse/track/557243119",
-      "duration_label": "2:52",
-      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/50/c2/45/50c2454e-32eb-ecd0-4ff4-ac1e81d2eacc/mzaf_11243209844020897804.plus.aac.p.m4a"
     },
     {
       "rank": 5,
