@@ -4,42 +4,12 @@
  */
 (function () {
   const FALLBACK_DATA = {
-    updated_at: "2026-10-22",
+    updated_at: "2026-11-06",
     period_label: "My Most Listened",
     source: "TIDAL",
     tracks: [
       {
         rank: 1,
-        title: "Evil Spawn",
-        artist: "Waxahatchee",
-        album: "Tigers Blood",
-        cover: "https://resources.tidal.com/images/9c091147/0ed6/4cb4/8406/44029e909b5a/640x640.jpg",
-        url: "https://tidal.com/browse/track/336429540",
-        duration_label: "3:13",
-        preview_url: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/02/f3/21/02f32108-3d0c-4fab-f31b-3969d9944eac/mzaf_7913548966017472784.plus.aac.p.m4a"
-      },
-      {
-        rank: 2,
-        title: "Vienen A Verme (From \"El Chapo\" Soundtrack)",
-        artist: "iLe",
-        album: "El Chapo (Original Television Soundtrack)",
-        cover: "https://resources.tidal.com/images/091a5f6f/a8a2/4922/85a0/dbf94e4920f1/640x640.jpg",
-        url: "https://tidal.com/browse/track/92804095",
-        duration_label: "3:21",
-        preview_url: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/c3/a1/a5/c3a1a5bd-df41-efed-2fa9-ae7bf46548aa/mzaf_3670058617852680873.plus.aac.p.m4a"
-      },
-      {
-        rank: 3,
-        title: "snug tug",
-        artist: "Pompey",
-        album: "Snug Tug (single)",
-        cover: "https://resources.tidal.com/images/2dbcb70c/eabc/41fd/9b3d/f96fb5c02e48/640x640.jpg",
-        url: "https://tidal.com/browse/track/417023145",
-        duration_label: "2:36",
-        preview_url: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/71/1a/fb/711afbaf-eb39-cba5-732f-9bf651696d4b/mzaf_9067500434685141881.plus.aac.p.m4a"
-      },
-      {
-        rank: 4,
         title: "the cops are coming",
         artist: "Junior Mesa",
         album: "the cops are coming",
@@ -49,14 +19,44 @@
         preview_url: ""
       },
       {
+        rank: 2,
+        title: "bray fool",
+        artist: "campthehills",
+        album: "bray fool",
+        cover: "https://resources.tidal.com/images/78888ff7/46d7/44eb/864a/b9e09972bb47/640x640.jpg",
+        url: "https://tidal.com/browse/track/557243119",
+        duration_label: "2:52",
+        preview_url: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/50/c2/45/50c2454e-32eb-ecd0-4ff4-ac1e81d2eacc/mzaf_11243209844020897804.plus.aac.p.m4a"
+      },
+      {
+        rank: 3,
+        title: "27a Pitfield St",
+        artist: "bassvictim",
+        album: "Forever",
+        cover: "https://resources.tidal.com/images/2377a080/a18b/4bc6/8e79/4fbce2ba1348/640x640.jpg",
+        url: "https://tidal.com/browse/track/529703645",
+        duration_label: "2:47",
+        preview_url: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/75/ef/d8/75efd8ef-ea00-ffa8-eb69-4184d418415a/mzaf_8664352154715662537.plus.aac.p.m4a"
+      },
+      {
+        rank: 4,
+        title: "Anova",
+        artist: "Hesse Kassel",
+        album: "La Brea",
+        cover: "https://resources.tidal.com/images/8da40ea6/abbd/473e/b557/1debb120247b/640x640.jpg",
+        url: "https://tidal.com/browse/track/418440494",
+        duration_label: "7:22",
+        preview_url: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/14/df/a1/14dfa13f-f913-c60d-bc6c-fd7d19a1db58/mzaf_8407304920528146714.plus.aac.p.m4a"
+      },
+      {
         rank: 5,
-        title: "Kinder des Olymp",
-        artist: "125, Rue Montmartre",
-        album: "Discography",
-        cover: "https://resources.tidal.com/images/7b2489ed/13d8/4dee/bf0f/4b107461919d/640x640.jpg",
-        url: "https://tidal.com/browse/track/247333754",
-        duration_label: "1:50",
-        preview_url: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/21/7f/b6/217fb61e-25a0-c2d6-b79d-4d2d4dcdf6ce/mzaf_7008952866815380400.plus.aac.p.m4a"
+        title: "Contigo",
+        artist: "Niños Del Cerro",
+        album: "Lance",
+        cover: "https://resources.tidal.com/images/e16411f7/4009/44dd/9b05/65be4008d8bc/640x640.jpg",
+        url: "https://tidal.com/browse/track/419603222",
+        duration_label: "3:44",
+        preview_url: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/62/22/f9/6222f900-42c2-3a89-6328-66197484f3ba/mzaf_12272904292340460203.plus.aac.p.m4a"
       }
     ]
   };
@@ -216,8 +216,8 @@
     if (!listEl) return;
 
     const tracks = Array.isArray(data.tracks) ? data.tracks.slice(0, 5) : [];
-    if (subtitleEl && data.updated_at) {
-      subtitleEl.textContent = `${data.period_label || "Monthly Rotation"} • Click a track for 30s preview`;
+    if (subtitleEl) {
+      subtitleEl.textContent = `${data.period_label || "My Most Listened"} • Click a track for 30s preview`;
     }
 
     const maxPlays = tracks.reduce((max, t) => Math.max(max, Number(t.plays) || 0), 0);

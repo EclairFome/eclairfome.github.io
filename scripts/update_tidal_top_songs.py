@@ -20,6 +20,10 @@ OUTPUT_JSON = ROOT_DIR / "assets" / "data" / "top-songs.json"
 LOCAL_SESSION_FILE = ROOT_DIR / ".tidal_session.json"
 
 
+# Default playlist ID if TIDAL_MIX_OR_PLAYLIST_ID is not provided in env
+DEFAULT_PLAYLIST_ID = "99ccf688-a0e0-4a5d-b7c5-8bcc52c4ce67"
+
+
 def load_session() -> tidalapi.Session:
     raw = os.environ.get("TIDAL_SESSION_JSON", "").strip()
     if not raw and LOCAL_SESSION_FILE.exists():
@@ -93,16 +97,16 @@ def get_mix_items(session: tidalapi.Session, mix_obj):
 
 
 def find_top_tracks(session: tidalapi.Session, limit: int = 5):
-    custom_id = os.environ.get("TIDAL_MIX_OR_PLAYLIST_ID", "").strip()
+    custom_id = os.environ.get("TIDAL_MIX_OR_PLAYLIST_ID", "").strip() or DEFAULT_PLAYLIST_ID
 
     # 1. If a specific Mix or Playlist ID is provided, use it directly
     if custom_id:
         try:
+            playlist = session.playlist(custom_id)
+            return playlist.tracks(limit=limit), getattr(playlist, "name", "My Most Listened")
+        except Exception:
             mix = session.mix(custom_id)
             return mix.items()[:limit], getattr(mix, "title", "My Most Listened")
-        except Exception:
-            playlist = session.playlist(custom_id)
-            return playlist.tracks(limit=limit), getattr(playlist, "name", "Monthly Top Songs")
 
     # 2. Search user's Home page ("Your listening history" -> "My Most Listened") and Mixes
     candidate_mixes = []
@@ -201,7 +205,7 @@ def main():
 
     output_data = {
         "updated_at": existing_date,
-        "period_label": "Last 30 Days • My Most Listened",
+        "period_label": "My Most Listened",
         "source": "TIDAL",
         "tracks": formatted_tracks,
     }
