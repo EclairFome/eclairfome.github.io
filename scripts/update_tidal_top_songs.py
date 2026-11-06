@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Fetches your top 5 monthly tracks from TIDAL using `tidalapi` and updates
 `assets/data/top-songs.json` (including 30-second audio preview URLs).
@@ -103,10 +103,10 @@ def find_top_tracks(session: tidalapi.Session, limit: int = 5):
     if custom_id:
         try:
             playlist = session.playlist(custom_id)
-            return playlist.tracks(limit=limit), getattr(playlist, "name", "My Most Listened")
+            return playlist.tracks(limit=limit), getattr(playlist, "name", "Updated often")
         except Exception:
             mix = session.mix(custom_id)
-            return mix.items()[:limit], getattr(mix, "title", "My Most Listened")
+            return mix.items()[:limit], getattr(mix, "title", "Updated often")
 
     # 2. Search user's Home page ("Your listening history" -> "My Most Listened") and Mixes
     candidate_mixes = []
@@ -141,7 +141,7 @@ def find_top_tracks(session: tidalapi.Session, limit: int = 5):
             if any(k in title_sub for k in kw_group):
                 items = get_mix_items(session, mix)
                 if items:
-                    return items[:limit], getattr(mix, "title", "My Most Listened")
+                    return items[:limit], getattr(mix, "title", "Updated often")
 
     if candidate_mixes:
         first_mix = candidate_mixes[0]
@@ -205,7 +205,7 @@ def main():
 
     output_data = {
         "updated_at": existing_date,
-        "period_label": "My Most Listened",
+        "period_label": "Updated often",
         "source": "TIDAL",
         "tracks": formatted_tracks,
     }
