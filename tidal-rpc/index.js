@@ -1,14 +1,14 @@
 (function(exports, jsxRuntime) {
     Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 
-    var PLUGIN_VERSION = "1.7.0";
+    var PLUGIN_VERSION = "1.8.0";
     var APP_ID = "1054951789318909972";
     var PC_VENCORD_APP_ID = "1108588077900898414";
     var MOBILE_SOCKET_ID = "Multi-Scrobbler@Vendetta";
     var MOBILE_PID = 2312;
     var TIDAL_LOGO_URL = "https://cdn.rcd.gg/PreMiD/websites/T/Tidal/assets/logo.png";
     var DEFAULT_COVER_HASH = "2a96cbd8b46e442fc41c2b86b821562f";
-    var PAUSE_GRACE_MS = 25000; // 25 seconds
+    var PAUSE_GRACE_MS = 1800000; // 30 minutes
     var PC_HOLDOFF_MS = 45000; // 45s holdoff after PC activity seen while desktop is online
     var PC_HEAD_START_MS = 15000; // 15s head start for PC to post activity when desktop is online
 
@@ -547,6 +547,7 @@
             albumArt: albumArt,
             url: track.url || (artistName + " - " + trackName),
             nowPlaying: nowPlaying,
+            rawNowPlaying: rawNowPlaying,
             from: uts,
             to: endTimestamp,
             duration: durationSec
@@ -570,16 +571,32 @@
 
             if (state.stopped) return;
 
+            // If a song was paused before scrobbling, prevent Last.fm's older completed scrobble from overwriting the paused song
+            if (
+                track &&
+                !track.rawNowPlaying &&
+                state.lastActiveTrack &&
+                (track.name !== state.lastActiveTrack.name || track.artist !== state.lastActiveTrack.artist) &&
+                track.from &&
+                state.lastActiveTrack.from &&
+                track.from < state.lastActiveTrack.from - 5
+            ) {
+                track = null;
+            }
+
             if (track && track.nowPlaying) {
-                if (state.lastActiveTrack && state.lastActiveTrack.artist === track.artist && state.lastActiveTrack.name === track.name) {
+                var isSameSong = state.lastActiveTrack && state.lastActiveTrack.artist === track.artist && state.lastActiveTrack.name === track.name;
+                if (isSameSong) {
                     if (!track.albumArt && state.lastActiveTrack.albumArt) track.albumArt = state.lastActiveTrack.albumArt;
                     if (!track.duration && state.lastActiveTrack.duration) {
                         track.duration = state.lastActiveTrack.duration;
                         track.to = state.lastActiveTrack.to;
                     }
                 }
+                if (!isSameSong || track.rawNowPlaying) {
+                    state.lastActiveTime = Date.now();
+                }
                 state.lastActiveTrack = track;
-                state.lastActiveTime = Date.now();
             } else if (state.lastActiveTrack && (Date.now() - (state.lastActiveTime || 0)) < PAUSE_GRACE_MS) {
                 track = Object.assign({}, state.lastActiveTrack, { nowPlaying: true });
             }
