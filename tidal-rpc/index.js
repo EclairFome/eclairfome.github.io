@@ -1,7 +1,7 @@
 (function(exports, jsxRuntime) {
     Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 
-    var PLUGIN_VERSION = "1.5.0";
+    var PLUGIN_VERSION = "1.6.0";
     var APP_ID = "1054951789318909972";
     var PC_VENCORD_APP_ID = "1108588077900898414";
     var MOBILE_SOCKET_ID = "Multi-Scrobbler@Vendetta";
@@ -9,6 +9,8 @@
     var TIDAL_LOGO_URL = "https://cdn.rcd.gg/PreMiD/websites/T/Tidal/assets/logo.png";
     var DEFAULT_COVER_HASH = "2a96cbd8b46e442fc41c2b86b821562f";
     var PAUSE_GRACE_MS = 25000; // 25 seconds
+    var PC_HOLDOFF_MS = 45000; // 45s holdoff after PC activity seen while desktop is online
+    var PC_HEAD_START_MS = 15000; // 15s head start for PC to post activity when desktop is online
 
     var defaultSettings = {
         username: "EclairFome",
@@ -38,6 +40,8 @@
         lastActivity: null,
         lastActiveTrack: null,
         lastActiveTime: 0,
+        pcActivityLastSeenAt: 0,
+        scrobbleWithoutPcSince: 0,
         latestFluxSessions: null,
         lastError: null,
         lastUpdateAt: null
@@ -272,11 +276,14 @@
 
     function isSessionShowingPcActivity(s) {
         if (!s || s.status === "offline" || s.status === "unknown") return false;
-        if (!Array.isArray(s.activities) || s.activities.length === 0) return false;
-        if (s.activities.some(isActivityFromPc)) return true;
+        var acts = [];
+        if (Array.isArray(s.activities)) acts = acts.concat(s.activities);
+        if (Array.isArray(s.hiddenActivities)) acts = acts.concat(s.hiddenActivities);
+        if (acts.length === 0) return false;
+        if (acts.some(isActivityFromPc)) return true;
         var ci = s.clientInfo || s.client_info;
         if (ci && ci.client === "desktop") {
-            return s.activities.some(function(a) {
+            return acts.some(function(a) {
                 var appId = a && (a.application_id || a.applicationId);
                 return a && a.type === 2 && appId !== APP_ID;
             });
@@ -331,28 +338,34 @@
                 var ci = s.clientInfo || s.client_info || {};
                 var client = ci.client || ci.os || "unknown";
                 var status = s.status || "?";
-                var actCount = Array.isArray(s.activities) ? s.activities.length : 0;
-                return client + " (" + status + ", " + actCount + " act)";
+                var acts = Array.isArray(s.activities) ? s.activities : [];
+                var types = acts.map(function(a) {
+                    if (!a) return "?";
+                    if (isActivityFromPc(a)) return "PC-RPC";
+                    if ((a.application_id || a.applicationId) === APP_ID) return "Mob-RPC";
+                    return String(a.type);
+                }).join("+");
+                return client + " (" + status + ", " + acts.length + " act" + (types ? " [" + types + "]" : "") + ")";
             }).join(", ");
         } catch (e) {
             return "Error reading sessions";
         }
     }
 
-    // Returns true ONLY when PC is actually broadcasting/showing a music activity!
-    // If Last.fm is scrobbling and no PC activity is showing, this returns false so Mobile steps in.
-    function isPcVencordActive() {
+    function isPcActivityShowing() {
         try {
             var SessionsStore = getStore("SessionsStore");
             if (SessionsStore) {
                 if (typeof SessionsStore.getRemoteApplicationActivity === "function") {
                     if (SessionsStore.getRemoteApplicationActivity(PC_VENCORD_APP_ID)) {
+                        state.pcActivityLastSeenAt = Date.now();
                         return true;
                     }
                 }
                 if (typeof SessionsStore.getRemoteActivities === "function") {
                     var rActs = SessionsStore.getRemoteActivities();
                     if (Array.isArray(rActs) && rActs.some(isActivityFromPc)) {
+                        state.pcActivityLastSeenAt = Date.now();
                         return true;
                     }
                 }
@@ -360,6 +373,7 @@
             var sessList = getSessionsList();
             for (var i = 0; i < sessList.length; i++) {
                 if (isSessionShowingPcActivity(sessList[i])) {
+                    state.pcActivityLastSeenAt = Date.now();
                     return true;
                 }
             }
@@ -367,6 +381,57 @@
         } catch (e) {
             return false;
         }
+    }
+
+    function shouldYieldToPc(isScrobbling) {
+        if (isPcActivityShowing()) {
+            state.pcActivityLastSeenAt = Date.now();
+            state.scrobbleWithoutPcSince = 0;
+            return true;
+        }
+
+        if (!hasDesktopSession()) {
+            state.pcActivityLastSeenAt = 0;
+            state.scrobbleWithoutPcSince = 0;
+            return false;
+        }
+
+        // Desktop session is online in SessionsStore:
+        // 1. If PC was showing music activity within the last 45s, keep yielding (prevents contesting on track changes)
+        if (state.pcActivityLastSeenAt > 0 && (Date.now() - state.pcActivityLastSeenAt) < PC_HOLDOFF_MS) {
+            return true;
+        }
+
+        // 2. If nothing is currently scrobbling on Last.fm, yield to PC since Desktop is online
+        if (!isScrobbling) {
+            state.scrobbleWithoutPcSince = 0;
+            return true;
+        }
+
+        // 3. Music is scrobbling on Last.fm while Desktop is online, but PC hasn't posted activity yet:
+        // Give PC a 15s head start to poll Last.fm, fetch cover art, and broadcast before Mobile steps in.
+        if (!state.scrobbleWithoutPcSince) {
+            state.scrobbleWithoutPcSince = Date.now();
+        }
+        if ((Date.now() - state.scrobbleWithoutPcSince) < PC_HEAD_START_MS) {
+            return true;
+        }
+
+        return false;
+    }
+
+    function getModeLabel() {
+        if (isPcActivityShowing()) {
+            return "Yielding to PC (PC Activity Showing)";
+        }
+        if (hasDesktopSession()) {
+            var isScrobbling = !!(state.lastActiveTrack && (Date.now() - (state.lastActiveTime || 0)) < PAUSE_GRACE_MS);
+            if (shouldYieldToPc(isScrobbling)) {
+                return "Yielding to PC (Desktop is Online)";
+            }
+            return "Active on Mobile (Stepped In — No PC Activity)";
+        }
+        return "Active on Mobile (PC is Offline)";
     }
 
     async function fetchJsonWithTimeout(url, options, timeoutMs) {
@@ -377,7 +442,7 @@
         return await withTimeout(res.json(), timeoutMs || 6000);
     }
 
-    async function fetchLatestLastFmTrack(cfg) {
+    async function fetchLatestLastFmTrack(cfg, skipExtras) {
         if (!cfg.username || !cfg.apiKey) {
             throw new Error("Last.fm username or API key not set");
         }
@@ -421,7 +486,7 @@
         var endTimestamp = null;
         var trackInfoArt = null;
 
-        if (nowPlaying) {
+        if (nowPlaying && !skipExtras) {
             try {
                 var infoQs = "method=track.getInfo&track=" + encodeURIComponent(trackName) +
                              "&artist=" + encodeURIComponent(artistName) +
@@ -446,7 +511,7 @@
         var albumArt = cleanArt(primaryImg && primaryImg["#text"]) || trackInfoArt;
 
         // iTunes high-res cover fallback
-        if (!albumArt && nowPlaying) {
+        if (!albumArt && nowPlaying && !skipExtras) {
             var cKey = (artistName + "\0" + trackName + "\0" + albumName).toLowerCase();
             if (fallbackArtCache.has(cKey)) {
                 albumArt = fallbackArtCache.get(cKey);
@@ -488,36 +553,51 @@
         state.isUpdating = true;
         state.updateStartedAt = Date.now();
         try {
-            if (isPcVencordActive()) {
-                if (state.lastActivity) {
-                    console.log("[Tidal-RPC] PC activity is showing; clearing mobile presence");
-                    clearActivity();
-                }
-                return;
+            var pcAlreadyShowing = isPcActivityShowing();
+            if (pcAlreadyShowing && state.lastActivity) {
+                console.log("[Tidal-RPC] PC activity is showing; clearing mobile presence");
+                clearActivity();
             }
 
             var cfg = getSettings();
-            var track = await fetchLatestLastFmTrack(cfg);
+            var track = await fetchLatestLastFmTrack(cfg, pcAlreadyShowing);
 
             if (state.stopped) return;
 
             if (track && track.nowPlaying) {
+                if (state.lastActiveTrack && state.lastActiveTrack.artist === track.artist && state.lastActiveTrack.name === track.name) {
+                    if (!track.albumArt && state.lastActiveTrack.albumArt) track.albumArt = state.lastActiveTrack.albumArt;
+                    if (!track.duration && state.lastActiveTrack.duration) {
+                        track.duration = state.lastActiveTrack.duration;
+                        track.to = state.lastActiveTrack.to;
+                    }
+                }
                 state.lastActiveTrack = track;
                 state.lastActiveTime = Date.now();
             } else if (state.lastActiveTrack && (Date.now() - (state.lastActiveTime || 0)) < PAUSE_GRACE_MS) {
                 track = Object.assign({}, state.lastActiveTrack, { nowPlaying: true });
             }
 
+            state.lastUpdateAt = new Date().toLocaleTimeString();
+
             if (!track || !track.nowPlaying) {
                 state.lastActiveTrack = null;
                 state.lastActiveTime = 0;
+                shouldYieldToPc(false);
                 if (state.lastActivity) clearActivity();
+                return;
+            }
+
+            if (shouldYieldToPc(true)) {
+                if (state.lastActivity) {
+                    console.log("[Tidal-RPC] Yielding to PC; clearing mobile presence");
+                    clearActivity();
+                }
                 return;
             }
 
             var trackKey = track.artist + "\0" + track.name + "\0" + (track.album || "") + "\0" + (cfg.showTimestamp ? "ts1" : "ts0") + "\0" + (cfg.listeningTo !== false ? "l1" : "l0") + "\0" + (cfg.showLargeText !== false ? "lt1" : "lt0");
             if (state.lastTrackKey === trackKey && state.lastActivity) {
-                state.lastUpdateAt = new Date().toLocaleTimeString();
                 return;
             }
 
@@ -551,15 +631,9 @@
             var largeAsset = track.albumArt ? await resolveExternalAsset(track.albumArt) : null;
             var tidalAsset = await resolveExternalAsset(TIDAL_LOGO_URL);
 
-            // If Mobile wasn't broadcasting yet and a desktop session is listed, give PC 3.5s to post its activity first.
-            // If PC still hasn't posted any activity after 3.5s, PC isn't handling it -> Mobile steps in!
-            if (!state.lastActivity && hasDesktopSession() && !isPcVencordActive()) {
-                await new Promise(function(r) { setTimeout(r, 3500); });
-            }
-
             if (state.stopped) return;
-            // Re-check if PC is showing an activity now
-            if (isPcVencordActive()) {
+            // Re-check if Mobile should yield to PC after async asset resolution
+            if (shouldYieldToPc(true)) {
                 if (state.lastActivity) clearActivity();
                 return;
             }
@@ -621,24 +695,29 @@
                 for (var sIdx = 0; sIdx < event.sessions.length; sIdx++) {
                     if (isSessionShowingPcActivity(event.sessions[sIdx])) {
                         pcNowActive = true;
+                        state.pcActivityLastSeenAt = Date.now();
+                        state.scrobbleWithoutPcSince = 0;
                         break;
                     }
                 }
-            } else {
-                pcNowActive = isPcVencordActive();
+            }
+            if (!pcNowActive) {
+                pcNowActive = isPcActivityShowing();
             }
 
-            if (pcNowActive) {
+            var isScrobbling = !!(state.lastActiveTrack && (Date.now() - (state.lastActiveTime || 0)) < PAUSE_GRACE_MS);
+
+            if (pcNowActive || shouldYieldToPc(isScrobbling)) {
                 if (state.lastActivity) {
-                    console.log("[Tidal-RPC] Instant handoff: PC activity showing -> clearing mobile presence");
+                    console.log("[Tidal-RPC] Instant handoff: Yielding to PC -> clearing mobile presence");
                     clearActivity();
                 }
             } else {
                 if (!state.lastActivity) {
-                    console.log("[Tidal-RPC] Instant handoff: No PC activity showing -> checking mobile presence");
+                    console.log("[Tidal-RPC] Instant handoff: Mobile active -> updating mobile presence");
                     updateActivity();
                     setTimeout(function() {
-                        if (!state.stopped && !state.lastActivity && !isPcVencordActive()) {
+                        if (!state.stopped && !state.lastActivity && !shouldYieldToPc(true)) {
                             updateActivity();
                         }
                     }, 600);
@@ -830,7 +909,7 @@
                         }),
                         R.createElement(TableRow, {
                             label: "Mode",
-                            subLabel: isPcVencordActive() ? "Yielding to PC (PC Activity Showing)" : "Active on Mobile (No PC Activity)"
+                            subLabel: getModeLabel()
                         }),
                         R.createElement(TableRow, {
                             label: "Active Sessions",
