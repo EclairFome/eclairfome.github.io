@@ -62,7 +62,7 @@
 
     var storeCache = {};
     var storePropHints = {
-        SessionsStore: ["getSessions", "getRemoteActivities"],
+        SessionsStore: ["getSessions"],
         PresenceStore: ["getActivities", "getClientStatus"],
         SelfPresenceStore: ["getLocalPresence", "getActivities"],
         AuthenticationStore: ["getId", "getToken"],
@@ -83,21 +83,28 @@
                     return s;
                 }
             }
-            if (typeof valenced !== "undefined" && valenced?.modules?.finders?.lookupModule && valenced?.modules?.finders?.filters) {
-                var f = valenced.modules.finders.filters;
-                if (f.withName) {
-                    var found = valenced.modules.finders.lookupModule(f.withName(name));
-                    if (found && found[0]) {
-                        storeCache[name] = found[0];
-                        return found[0];
+            if (typeof valenced !== "undefined" && valenced?.modules?.finders?.lookupModule) {
+                if (valenced?.discord?.flux?.withStoreName) {
+                    var byStoreName = valenced.modules.finders.lookupModule(valenced.discord.flux.withStoreName(name));
+                    if (byStoreName && byStoreName[0]) {
+                        storeCache[name] = byStoreName[0];
+                        return byStoreName[0];
                     }
                 }
+                var f = valenced.modules.finders.filters;
                 var hints = storePropHints[name];
-                if (hints && f.withProps) {
+                if (hints && f && f.withProps) {
                     var byProps = valenced.modules.finders.lookupModule(f.withProps.apply(f, hints));
                     if (byProps && byProps[0]) {
                         storeCache[name] = byProps[0];
                         return byProps[0];
+                    }
+                }
+                if (f && f.withName) {
+                    var found = valenced.modules.finders.lookupModule(f.withName(name));
+                    if (found && found[0]) {
+                        storeCache[name] = found[0];
+                        return found[0];
                     }
                 }
             }
@@ -231,7 +238,58 @@
     }
 
     function isActivityFromPc(a) {
-        return !!(a && a.application_id === PC_VENCORD_APP_ID);
+        if (!a) return false;
+        var appId = a.application_id || a.applicationId;
+        return appId === PC_VENCORD_APP_ID;
+    }
+
+    function isDesktopSession(s) {
+        if (!s || s.status === "offline" || s.status === "unknown") return false;
+        if (Array.isArray(s.activities) && s.activities.some(isActivityFromPc)) return true;
+        var ci = s.clientInfo || s.client_info;
+        if (ci && ci.client === "desktop") return true;
+        return false;
+    }
+
+    function getSessionsList() {
+        var list = [];
+        try {
+            var SessionsStore = getStore("SessionsStore");
+            if (SessionsStore && typeof SessionsStore.getSessions === "function") {
+                var sessions = SessionsStore.getSessions();
+                if (sessions) {
+                    if (typeof sessions.values === "function") {
+                        sessions = Array.from(sessions.values());
+                    } else if (!Array.isArray(sessions) && typeof sessions === "object") {
+                        sessions = Object.values(sessions);
+                    }
+                    if (Array.isArray(sessions)) {
+                        for (var i = 0; i < sessions.length; i++) {
+                            if (sessions[i]) list.push(sessions[i]);
+                        }
+                    }
+                }
+            }
+        } catch (e) {}
+        return list;
+    }
+
+    function getSessionsSummary() {
+        try {
+            var SessionsStore = getStore("SessionsStore");
+            if (!SessionsStore) return "SessionsStore not loaded yet";
+            var list = getSessionsList();
+            if (!list.length) return "No active sessions reported";
+            return list.map(function(s) {
+                var ci = s.clientInfo || s.client_info || {};
+                var client = ci.client || ci.os || "unknown";
+                var status = s.status || "?";
+                var actCount = Array.isArray(s.activities) ? s.activities.length : 0;
+                return client + " (" + status + (actCount ? (", " + actCount + " act") : "") + ")";
+            }).join(", ");
+        } catch (e) {
+            return "Error reading sessions";
+        }
     }
 
     function isPcVencordActive() {
@@ -251,16 +309,11 @@
                         return true;
                     }
                 }
-                if (typeof SessionsStore.getSessions === "function") {
-                    var sessions = SessionsStore.getSessions();
-                    if (sessions && typeof sessions === "object") {
-                        for (var k in sessions) {
-                            var sess = sessions[k];
-                            if (sess && Array.isArray(sess.activities) && sess.activities.some(isActivityFromPc)) {
-                                state.pcLastSeenAt = Date.now();
-                                return true;
-                            }
-                        }
+                var sessList = getSessionsList();
+                for (var i = 0; i < sessList.length; i++) {
+                    if (isDesktopSession(sessList[i])) {
+                        state.pcLastSeenAt = Date.now();
+                        return true;
                     }
                 }
             }
@@ -534,8 +587,7 @@
                 if (Array.isArray(event.sessions)) {
                     eventForMe = true;
                     for (var sIdx = 0; sIdx < event.sessions.length; sIdx++) {
-                        var sess = event.sessions[sIdx];
-                        if (sess && Array.isArray(sess.activities) && sess.activities.some(isActivityFromPc)) {
+                        if (isDesktopSession(event.sessions[sIdx])) {
                             pcNowActive = true;
                             break;
                         }
@@ -562,11 +614,11 @@
 
             if (pcNowActive || isPcVencordActive()) {
                 if (state.lastActivity) {
-                    console.log("[Tidal-RPC] Instant handoff: PC Vencord active -> clearing mobile presence");
+                    console.log("[Tidal-RPC] Instant handoff: PC session/activity active -> clearing mobile presence");
                     clearActivity();
                 }
             } else if (eventForMe && !state.lastActivity && (Date.now() - (state.pcLastSeenAt || 0)) > PC_HOLDOFF_MS) {
-                console.log("[Tidal-RPC] Instant handoff: PC Vencord stopped -> restoring mobile presence");
+                console.log("[Tidal-RPC] Instant handoff: PC session stopped -> restoring mobile presence");
                 updateActivity();
             }
         } catch (e) {}
@@ -659,6 +711,17 @@
         var msgState = R.useState("");
         var statusMsg = msgState[0], setStatusMsg = msgState[1];
 
+        var tickState = R.useState(0);
+        var setTick = tickState[1];
+        if (typeof R.useEffect === "function") {
+            R.useEffect(function() {
+                var iv = setInterval(function() {
+                    setTick(function(n) { return n + 1; });
+                }, 2000);
+                return function() { clearInterval(iv); };
+            }, []);
+        }
+
         var updateSetting = function(key, val) {
             liveSettings[key] = val;
             if (js && typeof js.set === "function") {
@@ -743,7 +806,11 @@
                         }),
                         R.createElement(TableRow, {
                             label: "Mode",
-                            subLabel: isPcVencordActive() ? "Yielding to PC (PC Activity Active)" : "Active on Mobile"
+                            subLabel: isPcVencordActive() ? "Yielding to PC (Desktop Session Active)" : "Active on Mobile (PC is Offline)"
+                        }),
+                        R.createElement(TableRow, {
+                            label: "Active Sessions",
+                            subLabel: getSessionsSummary()
                         }),
                         R.createElement(TableRow, {
                             label: "Latest Scrobble",
@@ -793,6 +860,15 @@
                         if (ctx.jsonStorage.cache) {
                             Object.assign(liveSettings, ctx.jsonStorage.cache);
                         }
+                    }
+                    if (typeof valenced !== "undefined" && valenced?.discord?.flux?.getStore && ctx?.cleanup) {
+                        ctx.cleanup(
+                            valenced.discord.flux.getStore("SessionsStore", function(s) { if (s) storeCache.SessionsStore = s; }),
+                            valenced.discord.flux.getStore("PresenceStore", function(s) { if (s) storeCache.PresenceStore = s; }),
+                            valenced.discord.flux.getStore("SelfPresenceStore", function(s) { if (s) storeCache.SelfPresenceStore = s; }),
+                            valenced.discord.flux.getStore("UserStore", function(s) { if (s) storeCache.UserStore = s; }),
+                            valenced.discord.flux.getStore("AuthenticationStore", function(s) { if (s) storeCache.AuthenticationStore = s; })
+                        );
                     }
                     // Pre-register Discord modules via Valenced getModules if available
                     if (typeof valenced !== "undefined" && valenced?.modules?.finders?.getModules && ctx?.cleanup) {
