@@ -1,11 +1,12 @@
 (function(exports, jsxRuntime) {
     Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 
-    var APP_ID = "1054951789318909972";
+    var APP_ID = "1108588077900898414";
     var PC_VENCORD_APP_ID = "1108588077900898414";
+    var MOBILE_SOCKET_ID = "tidal-rpc@mobile";
     var TIDAL_LOGO_URL = "https://cdn.rcd.gg/PreMiD/websites/T/Tidal/assets/logo.png";
     var DEFAULT_COVER_HASH = "2a96cbd8b46e442fc41c2b86b821562f";
-    var PAUSE_GRACE_MS = 1800000; // 30 minutes
+    var PAUSE_GRACE_MS = 25000; // 25 seconds
 
     var defaultSettings = {
         username: "EclairFome",
@@ -111,7 +112,7 @@
                 type: "LOCAL_ACTIVITY_UPDATE",
                 activity: activity,
                 pid: 2312,
-                socketId: "Multi-Scrobbler@Vendetta"
+                socketId: MOBILE_SOCKET_ID
             });
         }
     }
@@ -179,12 +180,40 @@
         return m + ":" + String(s).padStart(2, "0");
     }
 
+    function getCurrentUserId() {
+        try {
+            var authStore = getStore("AuthenticationStore");
+            if (authStore && typeof authStore.getId === "function") {
+                var id = authStore.getId();
+                if (id) return id;
+            }
+            var userStore = getStore("UserStore");
+            if (userStore && typeof userStore.getCurrentUser === "function") {
+                var u = userStore.getCurrentUser();
+                if (u && u.id) return u.id;
+            }
+        } catch (e) {}
+        return null;
+    }
+
+    function isActivityFromPc(a) {
+        if (!a || a.application_id !== PC_VENCORD_APP_ID) return false;
+        // If mobile has not set an activity, any TIDAL presence on our user is from PC
+        if (!state.lastActivity) return true;
+        // PC Vencord always sets flags: 32 (PLAY_STORE) or has buttons/metadata
+        if (a.flags && (a.flags & 32)) return true;
+        if (Array.isArray(a.buttons) && a.buttons.length > 0) return true;
+        if (a.metadata && Array.isArray(a.metadata.button_urls) && a.metadata.button_urls.length > 0) return true;
+        // If track details differ from what mobile dispatched, PC is active playing something else
+        if (a.details && state.lastActivity.details && a.details !== state.lastActivity.details) return true;
+        return false;
+    }
+
     function isPcVencordActive() {
         try {
-            var UserStore = getStore("UserStore");
+            var myUid = getCurrentUserId();
             var PresenceStore = getStore("PresenceStore");
             var SelfPresenceStore = getStore("SelfPresenceStore");
-            var myUid = UserStore && typeof UserStore.getCurrentUser === "function" ? UserStore.getCurrentUser()?.id : null;
             var acts = [];
             if (PresenceStore && typeof PresenceStore.getActivities === "function" && myUid) {
                 var pActs = PresenceStore.getActivities(myUid);
@@ -194,9 +223,7 @@
                 var sActs = SelfPresenceStore.getActivities();
                 if (Array.isArray(sActs)) acts.push.apply(acts, sActs);
             }
-            return acts.some(function(a) {
-                return a && a.application_id === PC_VENCORD_APP_ID;
-            });
+            return acts.some(isActivityFromPc);
         } catch (e) {
             return false;
         }
@@ -438,8 +465,7 @@
     function onPresenceUpdateEvent(event) {
         if (state.stopped) return;
         try {
-            var UserStore = getStore("UserStore");
-            var myUid = UserStore && typeof UserStore.getCurrentUser === "function" ? UserStore.getCurrentUser()?.id : null;
+            var myUid = getCurrentUserId();
             if (!myUid) return;
 
             var pcNowActive = false;
@@ -447,13 +473,13 @@
             if (event) {
                 if (event.user && event.user.id === myUid && Array.isArray(event.activities)) {
                     eventForMe = true;
-                    pcNowActive = event.activities.some(function(a) { return a && a.application_id === PC_VENCORD_APP_ID; });
+                    pcNowActive = event.activities.some(isActivityFromPc);
                 } else if (Array.isArray(event.updates)) {
                     for (var i = 0; i < event.updates.length; i++) {
                         var u = event.updates[i];
                         if (u && u.user && u.user.id === myUid) {
                             eventForMe = true;
-                            if (Array.isArray(u.activities) && u.activities.some(function(a) { return a && a.application_id === PC_VENCORD_APP_ID; })) {
+                            if (Array.isArray(u.activities) && u.activities.some(isActivityFromPc)) {
                                 pcNowActive = true;
                             }
                         }
@@ -483,6 +509,13 @@
                 dispatcher.subscribe("PRESENCE_UPDATE", onPresenceUpdateEvent);
             } catch (e) {}
         }
+        if (typeof valenced !== "undefined" && valenced?.discord?.flux?.onFluxEventDispatched) {
+            try {
+                var unsub1 = valenced.discord.flux.onFluxEventDispatched("PRESENCE_UPDATE", onPresenceUpdateEvent);
+                var unsub2 = valenced.discord.flux.onFluxEventDispatched("PRESENCE_UPDATES", onPresenceUpdateEvent);
+                state.fluxUnsubs = [unsub1, unsub2];
+            } catch (e) {}
+        }
         updateActivity();
         var cfg = getSettings();
         var intervalMs = Math.max((Number(cfg.timeInterval) || 5) * 1000, 3000);
@@ -501,6 +534,10 @@
                 dispatcher.unsubscribe("PRESENCE_UPDATES", onPresenceUpdateEvent);
                 dispatcher.unsubscribe("PRESENCE_UPDATE", onPresenceUpdateEvent);
             } catch (e) {}
+        }
+        if (Array.isArray(state.fluxUnsubs)) {
+            state.fluxUnsubs.forEach(function(u) { if (typeof u === "function") u(); });
+            state.fluxUnsubs = null;
         }
         clearActivity();
     }
