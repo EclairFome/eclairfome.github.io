@@ -60,18 +60,46 @@
         return null;
     }
 
+    var storeCache = {};
+    var storePropHints = {
+        SessionsStore: ["getSessions", "getRemoteActivities"],
+        PresenceStore: ["getActivities", "getClientStatus"],
+        SelfPresenceStore: ["getLocalPresence", "getActivities"],
+        AuthenticationStore: ["getId", "getToken"],
+        UserStore: ["getCurrentUser", "getUser"]
+    };
+
     function getStore(name) {
+        if (storeCache[name]) return storeCache[name];
         try {
             if (typeof valenced !== "undefined" && valenced?.discord?.flux?.Stores?.[name]) {
-                return valenced.discord.flux.Stores[name];
+                storeCache[name] = valenced.discord.flux.Stores[name];
+                return storeCache[name];
             }
             if (typeof vendetta !== "undefined" && vendetta?.metro?.findByStoreName) {
                 var s = vendetta.metro.findByStoreName(name);
-                if (s) return s;
+                if (s) {
+                    storeCache[name] = s;
+                    return s;
+                }
             }
-            if (typeof valenced !== "undefined" && valenced?.modules?.finders?.lookupModule && valenced?.modules?.finders?.filters?.withName) {
-                var found = valenced.modules.finders.lookupModule(valenced.modules.finders.filters.withName(name));
-                if (found && found[0]) return found[0];
+            if (typeof valenced !== "undefined" && valenced?.modules?.finders?.lookupModule && valenced?.modules?.finders?.filters) {
+                var f = valenced.modules.finders.filters;
+                if (f.withName) {
+                    var found = valenced.modules.finders.lookupModule(f.withName(name));
+                    if (found && found[0]) {
+                        storeCache[name] = found[0];
+                        return found[0];
+                    }
+                }
+                var hints = storePropHints[name];
+                if (hints && f.withProps) {
+                    var byProps = valenced.modules.finders.lookupModule(f.withProps.apply(f, hints));
+                    if (byProps && byProps[0]) {
+                        storeCache[name] = byProps[0];
+                        return byProps[0];
+                    }
+                }
             }
         } catch (e) {}
         return null;
@@ -206,6 +234,22 @@
         return !!(a && a.application_id === PC_VENCORD_APP_ID);
     }
 
+    function isDesktopSession(s) {
+        if (!s || s.status === "offline") return false;
+        if (Array.isArray(s.activities) && s.activities.some(isActivityFromPc)) return true;
+        var ci = s.clientInfo || s.client_info;
+        if (ci) {
+            if (ci.client === "desktop") return true;
+            if (ci.os && /^(windows|win32|macos|darwin|linux)$/i.test(ci.os)) return true;
+        }
+        return false;
+    }
+
+    function hasDesktopClientStatus(cs) {
+        if (!cs || typeof cs !== "object") return false;
+        return Boolean(cs.desktop && cs.desktop !== "offline");
+    }
+
     function isPcVencordActive() {
         try {
             var SessionsStore = getStore("SessionsStore");
@@ -227,8 +271,7 @@
                     var sessions = SessionsStore.getSessions();
                     if (sessions && typeof sessions === "object") {
                         for (var k in sessions) {
-                            var sess = sessions[k];
-                            if (sess && Array.isArray(sess.activities) && sess.activities.some(isActivityFromPc)) {
+                            if (isDesktopSession(sessions[k])) {
                                 state.pcLastSeenAt = Date.now();
                                 return true;
                             }
@@ -239,6 +282,21 @@
             var myUid = getCurrentUserId();
             var PresenceStore = getStore("PresenceStore");
             var SelfPresenceStore = getStore("SelfPresenceStore");
+            if (PresenceStore && myUid) {
+                if (typeof PresenceStore.getClientStatus === "function") {
+                    if (hasDesktopClientStatus(PresenceStore.getClientStatus(myUid))) {
+                        state.pcLastSeenAt = Date.now();
+                        return true;
+                    }
+                }
+                if (typeof PresenceStore.getState === "function") {
+                    var pState = PresenceStore.getState();
+                    if (pState && pState.clientStatuses && hasDesktopClientStatus(pState.clientStatuses[myUid])) {
+                        state.pcLastSeenAt = Date.now();
+                        return true;
+                    }
+                }
+            }
             var acts = [];
             if (PresenceStore && typeof PresenceStore.getActivities === "function" && myUid) {
                 var pActs = PresenceStore.getActivities(myUid);
@@ -502,21 +560,26 @@
                 if (Array.isArray(event.sessions)) {
                     eventForMe = true;
                     for (var sIdx = 0; sIdx < event.sessions.length; sIdx++) {
-                        var sess = event.sessions[sIdx];
-                        if (sess && Array.isArray(sess.activities) && sess.activities.some(isActivityFromPc)) {
+                        if (isDesktopSession(event.sessions[sIdx])) {
                             pcNowActive = true;
                             break;
                         }
                     }
-                } else if (myUid && event.user && event.user.id === myUid && Array.isArray(event.activities)) {
+                } else if (myUid && event.user && event.user.id === myUid) {
                     eventForMe = true;
-                    pcNowActive = event.activities.some(isActivityFromPc);
+                    if (hasDesktopClientStatus(event.client_status || event.clientStatus)) {
+                        pcNowActive = true;
+                    } else if (Array.isArray(event.activities) && event.activities.some(isActivityFromPc)) {
+                        pcNowActive = true;
+                    }
                 } else if (myUid && Array.isArray(event.updates)) {
                     for (var i = 0; i < event.updates.length; i++) {
                         var u = event.updates[i];
                         if (u && u.user && u.user.id === myUid) {
                             eventForMe = true;
-                            if (Array.isArray(u.activities) && u.activities.some(isActivityFromPc)) {
+                            if (hasDesktopClientStatus(u.client_status || u.clientStatus)) {
+                                pcNowActive = true;
+                            } else if (Array.isArray(u.activities) && u.activities.some(isActivityFromPc)) {
                                 pcNowActive = true;
                             }
                         }
@@ -530,11 +593,11 @@
 
             if (pcNowActive || isPcVencordActive()) {
                 if (state.lastActivity) {
-                    console.log("[Tidal-RPC] Instant handoff: PC Vencord active -> clearing mobile presence");
+                    console.log("[Tidal-RPC] Instant handoff: PC is online/active -> clearing mobile presence");
                     clearActivity();
                 }
             } else if (eventForMe && !state.lastActivity && (Date.now() - (state.pcLastSeenAt || 0)) > PC_HOLDOFF_MS) {
-                console.log("[Tidal-RPC] Instant handoff: PC Vencord stopped -> restoring mobile presence");
+                console.log("[Tidal-RPC] Instant handoff: PC offline -> restoring mobile presence");
                 updateActivity();
             }
         } catch (e) {}
@@ -708,6 +771,10 @@
                         R.createElement(TableRow, {
                             label: "Account",
                             subLabel: username ? ("Connected as: " + username) : "No username set"
+                        }),
+                        R.createElement(TableRow, {
+                            label: "Mode",
+                            subLabel: isPcVencordActive() ? "Yielding to PC (Desktop is Online)" : "Active on Mobile (PC is Offline)"
                         }),
                         R.createElement(TableRow, {
                             label: "Latest Scrobble",
