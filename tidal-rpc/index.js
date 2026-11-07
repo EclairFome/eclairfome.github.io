@@ -1,12 +1,13 @@
 (function(exports, jsxRuntime) {
     Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 
-    var APP_ID = "1108588077900898414";
+    var APP_ID = "1054951789318909972";
     var PC_VENCORD_APP_ID = "1108588077900898414";
     var MOBILE_SOCKET_ID = "tidal-rpc@mobile";
     var TIDAL_LOGO_URL = "https://cdn.rcd.gg/PreMiD/websites/T/Tidal/assets/logo.png";
     var DEFAULT_COVER_HASH = "2a96cbd8b46e442fc41c2b86b821562f";
     var PAUSE_GRACE_MS = 25000; // 25 seconds
+    var PC_HOLDOFF_MS = 12000; // 12 seconds holdoff after seeing PC active
 
     var defaultSettings = {
         username: "EclairFome",
@@ -34,6 +35,7 @@
         lastActivity: null,
         lastActiveTrack: null,
         lastActiveTime: 0,
+        pcLastSeenAt: 0,
         lastError: null,
         lastUpdateAt: null
     };
@@ -64,7 +66,12 @@
                 return valenced.discord.flux.Stores[name];
             }
             if (typeof vendetta !== "undefined" && vendetta?.metro?.findByStoreName) {
-                return vendetta.metro.findByStoreName(name);
+                var s = vendetta.metro.findByStoreName(name);
+                if (s) return s;
+            }
+            if (typeof valenced !== "undefined" && valenced?.modules?.finders?.lookupModule && valenced?.modules?.finders?.filters?.withName) {
+                var found = valenced.modules.finders.lookupModule(valenced.modules.finders.filters.withName(name));
+                if (found && found[0]) return found[0];
             }
         } catch (e) {}
         return null;
@@ -111,7 +118,6 @@
             dispatcher.dispatch({
                 type: "LOCAL_ACTIVITY_UPDATE",
                 activity: activity,
-                pid: 2312,
                 socketId: MOBILE_SOCKET_ID
             });
         }
@@ -197,20 +203,39 @@
     }
 
     function isActivityFromPc(a) {
-        if (!a || a.application_id !== PC_VENCORD_APP_ID) return false;
-        // If mobile has not set an activity, any TIDAL presence on our user is from PC
-        if (!state.lastActivity) return true;
-        // PC Vencord always sets flags: 32 (PLAY_STORE) or has buttons/metadata
-        if (a.flags && (a.flags & 32)) return true;
-        if (Array.isArray(a.buttons) && a.buttons.length > 0) return true;
-        if (a.metadata && Array.isArray(a.metadata.button_urls) && a.metadata.button_urls.length > 0) return true;
-        // If track details differ from what mobile dispatched, PC is active playing something else
-        if (a.details && state.lastActivity.details && a.details !== state.lastActivity.details) return true;
-        return false;
+        return !!(a && a.application_id === PC_VENCORD_APP_ID);
     }
 
     function isPcVencordActive() {
         try {
+            var SessionsStore = getStore("SessionsStore");
+            if (SessionsStore) {
+                if (typeof SessionsStore.getRemoteApplicationActivity === "function") {
+                    if (SessionsStore.getRemoteApplicationActivity(PC_VENCORD_APP_ID)) {
+                        state.pcLastSeenAt = Date.now();
+                        return true;
+                    }
+                }
+                if (typeof SessionsStore.getRemoteActivities === "function") {
+                    var rActs = SessionsStore.getRemoteActivities();
+                    if (Array.isArray(rActs) && rActs.some(isActivityFromPc)) {
+                        state.pcLastSeenAt = Date.now();
+                        return true;
+                    }
+                }
+                if (typeof SessionsStore.getSessions === "function") {
+                    var sessions = SessionsStore.getSessions();
+                    if (sessions && typeof sessions === "object") {
+                        for (var k in sessions) {
+                            var sess = sessions[k];
+                            if (sess && Array.isArray(sess.activities) && sess.activities.some(isActivityFromPc)) {
+                                state.pcLastSeenAt = Date.now();
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
             var myUid = getCurrentUserId();
             var PresenceStore = getStore("PresenceStore");
             var SelfPresenceStore = getStore("SelfPresenceStore");
@@ -223,7 +248,11 @@
                 var sActs = SelfPresenceStore.getActivities();
                 if (Array.isArray(sActs)) acts.push.apply(acts, sActs);
             }
-            return acts.some(isActivityFromPc);
+            if (acts.some(isActivityFromPc)) {
+                state.pcLastSeenAt = Date.now();
+                return true;
+            }
+            return false;
         } catch (e) {
             return false;
         }
@@ -466,15 +495,23 @@
         if (state.stopped) return;
         try {
             var myUid = getCurrentUserId();
-            if (!myUid) return;
 
             var pcNowActive = false;
             var eventForMe = false;
             if (event) {
-                if (event.user && event.user.id === myUid && Array.isArray(event.activities)) {
+                if (Array.isArray(event.sessions)) {
+                    eventForMe = true;
+                    for (var sIdx = 0; sIdx < event.sessions.length; sIdx++) {
+                        var sess = event.sessions[sIdx];
+                        if (sess && Array.isArray(sess.activities) && sess.activities.some(isActivityFromPc)) {
+                            pcNowActive = true;
+                            break;
+                        }
+                    }
+                } else if (myUid && event.user && event.user.id === myUid && Array.isArray(event.activities)) {
                     eventForMe = true;
                     pcNowActive = event.activities.some(isActivityFromPc);
-                } else if (Array.isArray(event.updates)) {
+                } else if (myUid && Array.isArray(event.updates)) {
                     for (var i = 0; i < event.updates.length; i++) {
                         var u = event.updates[i];
                         if (u && u.user && u.user.id === myUid) {
@@ -487,12 +524,16 @@
                 }
             }
 
+            if (pcNowActive) {
+                state.pcLastSeenAt = Date.now();
+            }
+
             if (pcNowActive || isPcVencordActive()) {
                 if (state.lastActivity) {
                     console.log("[Tidal-RPC] Instant handoff: PC Vencord active -> clearing mobile presence");
                     clearActivity();
                 }
-            } else if (eventForMe && !state.lastActivity) {
+            } else if (eventForMe && !state.lastActivity && (Date.now() - (state.pcLastSeenAt || 0)) > PC_HOLDOFF_MS) {
                 console.log("[Tidal-RPC] Instant handoff: PC Vencord stopped -> restoring mobile presence");
                 updateActivity();
             }
@@ -505,15 +546,17 @@
         var dispatcher = getDispatcher();
         if (dispatcher && typeof dispatcher.subscribe === "function") {
             try {
+                dispatcher.subscribe("SESSIONS_REPLACE", onPresenceUpdateEvent);
                 dispatcher.subscribe("PRESENCE_UPDATES", onPresenceUpdateEvent);
                 dispatcher.subscribe("PRESENCE_UPDATE", onPresenceUpdateEvent);
             } catch (e) {}
         }
         if (typeof valenced !== "undefined" && valenced?.discord?.flux?.onFluxEventDispatched) {
             try {
+                var unsub0 = valenced.discord.flux.onFluxEventDispatched("SESSIONS_REPLACE", onPresenceUpdateEvent);
                 var unsub1 = valenced.discord.flux.onFluxEventDispatched("PRESENCE_UPDATE", onPresenceUpdateEvent);
                 var unsub2 = valenced.discord.flux.onFluxEventDispatched("PRESENCE_UPDATES", onPresenceUpdateEvent);
-                state.fluxUnsubs = [unsub1, unsub2];
+                state.fluxUnsubs = [unsub0, unsub1, unsub2];
             } catch (e) {}
         }
         updateActivity();
@@ -531,6 +574,7 @@
         var dispatcher = getDispatcher();
         if (dispatcher && typeof dispatcher.unsubscribe === "function") {
             try {
+                dispatcher.unsubscribe("SESSIONS_REPLACE", onPresenceUpdateEvent);
                 dispatcher.unsubscribe("PRESENCE_UPDATES", onPresenceUpdateEvent);
                 dispatcher.unsubscribe("PRESENCE_UPDATE", onPresenceUpdateEvent);
             } catch (e) {}
