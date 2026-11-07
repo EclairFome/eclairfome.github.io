@@ -1,13 +1,14 @@
 (function(exports, jsxRuntime) {
     Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 
+    var PLUGIN_VERSION = "1.4.0";
     var APP_ID = "1054951789318909972";
     var PC_VENCORD_APP_ID = "1108588077900898414";
-    var MOBILE_SOCKET_ID = "tidal-rpc@mobile";
+    var MOBILE_SOCKET_ID = "Multi-Scrobbler@Vendetta";
+    var MOBILE_PID = 2312;
     var TIDAL_LOGO_URL = "https://cdn.rcd.gg/PreMiD/websites/T/Tidal/assets/logo.png";
     var DEFAULT_COVER_HASH = "2a96cbd8b46e442fc41c2b86b821562f";
     var PAUSE_GRACE_MS = 25000; // 25 seconds
-    var PC_HOLDOFF_MS = 12000; // 12 seconds holdoff after seeing PC active
 
     var defaultSettings = {
         username: "EclairFome",
@@ -26,22 +27,50 @@
     var fallbackArtCache = new Map();
     var httpModule = null;
     var assetUtilsModule = null;
+    var setActivityModule = null;
 
     var state = {
         stopped: true,
         isUpdating: false,
+        updateStartedAt: 0,
         updateTimer: null,
         lastTrackKey: null,
         lastActivity: null,
         lastActiveTrack: null,
         lastActiveTime: 0,
-        pcLastSeenAt: 0,
+        latestFluxSessions: null,
         lastError: null,
         lastUpdateAt: null
     };
 
     var storageRef = null;
     var liveSettings = Object.assign({}, defaultSettings);
+
+    function withTimeout(promise, ms, fallbackValue) {
+        return new Promise(function(resolve, reject) {
+            var timer = setTimeout(function() {
+                if (arguments.length >= 3) {
+                    resolve(fallbackValue);
+                } else {
+                    reject(new Error("Request timed out after " + ms + "ms"));
+                }
+            }, ms);
+            Promise.resolve(promise).then(
+                function(val) {
+                    clearTimeout(timer);
+                    resolve(val);
+                },
+                function(err) {
+                    clearTimeout(timer);
+                    if (arguments.length >= 3) {
+                        resolve(fallbackValue);
+                    } else {
+                        reject(err);
+                    }
+                }
+            );
+        });
+    }
 
     function getSettings() {
         var cached = (storageRef && storageRef.cache) || {};
@@ -62,8 +91,7 @@
 
     var storeCache = {};
     var storePropHints = {
-        SessionsStore: ["getSessions"],
-        PresenceStore: ["getActivities", "getClientStatus"],
+        SessionsStore: ["getSessions", "getRemoteActivities"],
         SelfPresenceStore: ["getLocalPresence", "getActivities"],
         AuthenticationStore: ["getId", "getToken"],
         UserStore: ["getCurrentUser", "getUser"]
@@ -114,13 +142,26 @@
 
     function resolveDiscordModules() {
         try {
+            // Initialize SET_ACTIVITY module so LocalActivityStore is guaranteed to listen to LOCAL_ACTIVITY_UPDATE
+            if (!setActivityModule) {
+                if (typeof valenced !== "undefined" && valenced?.modules?.finders?.lookupModule) {
+                    var fs = valenced.modules.finders.filters;
+                    var sm = valenced.modules.finders.lookupModule(fs.withProps("SET_ACTIVITY"));
+                    if (sm && sm[0]) setActivityModule = sm[0];
+                } else if (typeof vendetta !== "undefined" && vendetta?.metro?.findByProps) {
+                    setActivityModule = vendetta.metro.findByProps("SET_ACTIVITY");
+                }
+            }
+        } catch (e) {}
+
+        try {
             if (!httpModule && typeof valenced !== "undefined" && valenced?.modules?.finders?.lookupModule) {
                 var f = valenced.modules.finders.filters;
-                var m1 = valenced.modules.finders.lookupModule(f.withProps("HTTP", "post"));
-                if (m1 && m1[0] && m1[0].HTTP) httpModule = m1[0].HTTP;
+                var m2 = valenced.modules.finders.lookupModule(f.withProps("getAPIBaseURL", "post"));
+                if (m2 && m2[0]) httpModule = m2[0];
                 if (!httpModule) {
-                    var m2 = valenced.modules.finders.lookupModule(f.withProps("getAPIBaseURL", "post"));
-                    if (m2 && m2[0]) httpModule = m2[0];
+                    var m1 = valenced.modules.finders.lookupModule(f.withProps("HTTP"));
+                    if (m1 && m1[0] && m1[0].HTTP) httpModule = m1[0].HTTP;
                 }
             }
             if (!httpModule && typeof vendetta !== "undefined" && vendetta?.metro?.findByProps) {
@@ -146,6 +187,7 @@
 
     function dispatchActivity(activity) {
         if (state.stopped) activity = null;
+        resolveDiscordModules();
         state.lastActivity = activity;
         if (!activity) state.lastTrackKey = null;
         var dispatcher = getDispatcher();
@@ -153,6 +195,7 @@
             dispatcher.dispatch({
                 type: "LOCAL_ACTIVITY_UPDATE",
                 activity: activity,
+                pid: MOBILE_PID,
                 socketId: MOBILE_SOCKET_ID
             });
         }
@@ -170,10 +213,10 @@
 
         resolveDiscordModules();
 
-        // 1. Try assetUtilsModule.fetchAssetIds
+        // 1. Try assetUtilsModule.fetchAssetIds (with 4s timeout so it never hangs song switching)
         if (assetUtilsModule && typeof assetUtilsModule.fetchAssetIds === "function") {
             try {
-                var ids = await assetUtilsModule.fetchAssetIds(APP_ID, [url]);
+                var ids = await withTimeout(assetUtilsModule.fetchAssetIds(APP_ID, [url]), 4000, null);
                 if (Array.isArray(ids) && ids[0]) {
                     assetCache.set(url, ids[0]);
                     return ids[0];
@@ -183,28 +226,26 @@
 
         // 2. Try Discord HTTP module POST to /applications/{APP_ID}/external-assets
         if (httpModule && typeof httpModule.post === "function") {
-            var endpoints = ["/applications/" + APP_ID + "/external-assets"];
+            var endpoint = "/applications/" + APP_ID + "/external-assets";
             try {
                 var base = typeof httpModule.getAPIBaseURL === "function" ? httpModule.getAPIBaseURL() : "";
-                if (base) endpoints.push(base + "/applications/" + APP_ID + "/external-assets");
+                if (base) endpoint = base + "/applications/" + APP_ID + "/external-assets";
             } catch (e) {}
 
-            for (var i = 0; i < endpoints.length; i++) {
-                try {
-                    var res = await httpModule.post({
-                        url: endpoints[i],
-                        body: { urls: [url] },
-                        oldFormErrors: true,
-                        rejectWithError: false
-                    });
-                    var body = res && res.body;
-                    if (Array.isArray(body) && body[0] && body[0].external_asset_path) {
-                        var mp = "mp:" + body[0].external_asset_path;
-                        assetCache.set(url, mp);
-                        return mp;
-                    }
-                } catch (e) {}
-            }
+            try {
+                var res = await withTimeout(httpModule.post({
+                    url: endpoint,
+                    body: { urls: [url] },
+                    oldFormErrors: true,
+                    rejectWithError: false
+                }), 4000, null);
+                var body = res && res.body;
+                if (Array.isArray(body) && body[0] && body[0].external_asset_path) {
+                    var mp = "mp:" + body[0].external_asset_path;
+                    assetCache.set(url, mp);
+                    return mp;
+                }
+            } catch (e) {}
         }
 
         return null;
@@ -219,22 +260,6 @@
             return h + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
         }
         return m + ":" + String(s).padStart(2, "0");
-    }
-
-    function getCurrentUserId() {
-        try {
-            var authStore = getStore("AuthenticationStore");
-            if (authStore && typeof authStore.getId === "function") {
-                var id = authStore.getId();
-                if (id) return id;
-            }
-            var userStore = getStore("UserStore");
-            if (userStore && typeof userStore.getCurrentUser === "function") {
-                var u = userStore.getCurrentUser();
-                if (u && u.id) return u.id;
-            }
-        } catch (e) {}
-        return null;
     }
 
     function isActivityFromPc(a) {
@@ -270,6 +295,9 @@
                     }
                 }
             }
+            if (list.length === 0 && Array.isArray(state.latestFluxSessions)) {
+                return state.latestFluxSessions;
+            }
         } catch (e) {}
         return list;
     }
@@ -277,9 +305,9 @@
     function getSessionsSummary() {
         try {
             var SessionsStore = getStore("SessionsStore");
-            if (!SessionsStore) return "SessionsStore not loaded yet";
             var list = getSessionsList();
-            if (!list.length) return "No active sessions reported";
+            if (!SessionsStore && !list.length) return "SessionsStore not loaded yet";
+            if (!list.length) return "Only local mobile session";
             return list.map(function(s) {
                 var ci = s.clientInfo || s.client_info || {};
                 var client = ci.client || ci.os || "unknown";
@@ -298,45 +326,36 @@
             if (SessionsStore) {
                 if (typeof SessionsStore.getRemoteApplicationActivity === "function") {
                     if (SessionsStore.getRemoteApplicationActivity(PC_VENCORD_APP_ID)) {
-                        state.pcLastSeenAt = Date.now();
                         return true;
                     }
                 }
                 if (typeof SessionsStore.getRemoteActivities === "function") {
                     var rActs = SessionsStore.getRemoteActivities();
                     if (Array.isArray(rActs) && rActs.some(isActivityFromPc)) {
-                        state.pcLastSeenAt = Date.now();
-                        return true;
-                    }
-                }
-                var sessList = getSessionsList();
-                for (var i = 0; i < sessList.length; i++) {
-                    if (isDesktopSession(sessList[i])) {
-                        state.pcLastSeenAt = Date.now();
                         return true;
                     }
                 }
             }
-            var myUid = getCurrentUserId();
-            var PresenceStore = getStore("PresenceStore");
-            var SelfPresenceStore = getStore("SelfPresenceStore");
-            var acts = [];
-            if (PresenceStore && typeof PresenceStore.getActivities === "function" && myUid) {
-                var pActs = PresenceStore.getActivities(myUid);
-                if (Array.isArray(pActs)) acts.push.apply(acts, pActs);
+            var sessList = getSessionsList();
+            for (var i = 0; i < sessList.length; i++) {
+                if (isDesktopSession(sessList[i])) {
+                    return true;
+                }
             }
-            if (SelfPresenceStore && typeof SelfPresenceStore.getActivities === "function") {
-                var sActs = SelfPresenceStore.getActivities();
-                if (Array.isArray(sActs)) acts.push.apply(acts, sActs);
-            }
-            if (acts.some(isActivityFromPc)) {
-                state.pcLastSeenAt = Date.now();
-                return true;
-            }
+            // IMPORTANT: Never fall back to PresenceStore.getActivities(myUid) because
+            // PresenceStore caches guild presences for myUid and stays stale after PC closes!
             return false;
         } catch (e) {
             return false;
         }
+    }
+
+    async function fetchJsonWithTimeout(url, options, timeoutMs) {
+        var res = await withTimeout(fetch(url, options || {}), timeoutMs || 6000);
+        if (!res || !res.ok) {
+            throw new Error("HTTP " + (res ? res.status : "timeout"));
+        }
+        return await withTimeout(res.json(), timeoutMs || 6000);
     }
 
     async function fetchLatestLastFmTrack(cfg) {
@@ -347,14 +366,12 @@
                  "&api_key=" + encodeURIComponent(cfg.apiKey) +
                  "&limit=1&extended=1&format=json&_=" + Date.now();
         var url = "https://ws.audioscrobbler.com/2.0/?" + qs;
-        var res = await fetch(url, {
+        var json = await fetchJsonWithTimeout(url, {
             headers: {
                 "Cache-Control": "no-cache, no-store",
                 "Pragma": "no-cache"
             }
-        });
-        if (!res.ok) throw new Error("Last.fm HTTP " + res.status);
-        var json = await res.json();
+        }, 6000);
         if (json.error) throw new Error(json.message || ("Last.fm Error " + json.error));
 
         var track = json?.recenttracks?.track?.[0];
@@ -378,7 +395,7 @@
         var cleanArt = function(artUrl) {
             if (!artUrl || typeof artUrl !== "string") return null;
             if (artUrl.includes(DEFAULT_COVER_HASH)) return null;
-            return artUrl;
+            return artUrl.replace("https://lastfm-img.freetls.fastly.net/", "https://lastfm.freetls.fastly.net/");
         };
 
         var durationSec = null;
@@ -391,19 +408,16 @@
                              "&artist=" + encodeURIComponent(artistName) +
                              "&autocorrect=1&api_key=" + encodeURIComponent(cfg.apiKey) +
                              "&format=json&_=" + Date.now();
-                var infoRes = await fetch("https://ws.audioscrobbler.com/2.0/?" + infoQs);
-                if (infoRes.ok) {
-                    var infoJson = await infoRes.json();
-                    var durMs = infoJson?.track?.duration ? parseInt(infoJson.track.duration, 10) : 0;
-                    if (durMs > 0) {
-                        durationSec = Math.floor(durMs / 1000);
-                        endTimestamp = uts + durationSec;
-                    }
-                    var tImgs = infoJson?.track?.album?.image;
-                    if (Array.isArray(tImgs)) {
-                        var lg = tImgs.find(function(x) { return x.size === "extralarge"; }) || tImgs.find(function(x) { return x.size === "large"; });
-                        if (lg) trackInfoArt = cleanArt(lg["#text"]);
-                    }
+                var infoJson = await fetchJsonWithTimeout("https://ws.audioscrobbler.com/2.0/?" + infoQs, {}, 4000);
+                var durMs = infoJson?.track?.duration ? parseInt(infoJson.track.duration, 10) : 0;
+                if (durMs > 0) {
+                    durationSec = Math.floor(durMs / 1000);
+                    endTimestamp = uts + durationSec;
+                }
+                var tImgs = infoJson?.track?.album?.image;
+                if (Array.isArray(tImgs)) {
+                    var lg = tImgs.find(function(x) { return x.size === "extralarge"; }) || tImgs.find(function(x) { return x.size === "large"; });
+                    if (lg) trackInfoArt = cleanArt(lg["#text"]);
                 }
             } catch (e) {}
         }
@@ -420,20 +434,17 @@
             } else {
                 try {
                     var term = encodeURIComponent(artistName + " " + trackName);
-                    var itRes = await fetch("https://itunes.apple.com/search?term=" + term + "&entity=song&limit=5");
-                    if (itRes.ok) {
-                        var itJson = await itRes.json();
-                        var aLow = artistName.toLowerCase();
-                        var tLow = trackName.toLowerCase();
-                        var results = Array.isArray(itJson?.results) ? itJson.results : [];
-                        var aMatches = results.filter(function(r) {
-                            var rA = (r.artistName || "").toLowerCase();
-                            return rA && (rA.includes(aLow) || aLow.includes(rA));
-                        });
-                        var match = aMatches.find(function(r) { return (r.trackName || "").toLowerCase() === tLow; }) || aMatches[0];
-                        var art = match?.artworkUrl100 ? match.artworkUrl100.replace("100x100bb", "512x512bb") : null;
-                        if (art) albumArt = art;
-                    }
+                    var itJson = await fetchJsonWithTimeout("https://itunes.apple.com/search?term=" + term + "&entity=song&limit=5", {}, 4000);
+                    var aLow = artistName.toLowerCase();
+                    var tLow = trackName.toLowerCase();
+                    var results = Array.isArray(itJson?.results) ? itJson.results : [];
+                    var aMatches = results.filter(function(r) {
+                        var rA = (r.artistName || "").toLowerCase();
+                        return rA && (rA.includes(aLow) || aLow.includes(rA));
+                    });
+                    var match = aMatches.find(function(r) { return (r.trackName || "").toLowerCase() === tLow; }) || aMatches[0];
+                    var art = match?.artworkUrl100 ? match.artworkUrl100.replace("100x100bb", "512x512bb") : null;
+                    if (art) albumArt = art;
                 } catch (e) {}
                 fallbackArtCache.set(cKey, albumArt || null);
             }
@@ -453,12 +464,14 @@
     }
 
     async function updateActivity() {
-        if (state.stopped || state.isUpdating) return;
+        if (state.stopped) return;
+        if (state.isUpdating && (Date.now() - (state.updateStartedAt || 0)) < 10000) return;
         state.isUpdating = true;
+        state.updateStartedAt = Date.now();
         try {
             if (isPcVencordActive()) {
                 if (state.lastActivity) {
-                    console.log("[Tidal-RPC] PC Vencord is active; clearing mobile presence");
+                    console.log("[Tidal-RPC] PC session is active; clearing mobile presence");
                     clearActivity();
                 }
                 return;
@@ -483,7 +496,7 @@
                 return;
             }
 
-            var trackKey = track.artist + "\0" + track.name + "\0" + (track.albumArt || "");
+            var trackKey = track.artist + "\0" + track.name + "\0" + (track.album || "") + "\0" + (cfg.showTimestamp ? "ts1" : "ts0") + "\0" + (cfg.listeningTo !== false ? "l1" : "l0") + "\0" + (cfg.showLargeText !== false ? "lt1" : "lt0");
             if (state.lastTrackKey === trackKey && state.lastActivity) {
                 state.lastUpdateAt = new Date().toLocaleTimeString();
                 return;
@@ -519,14 +532,10 @@
             var largeAsset = track.albumArt ? await resolveExternalAsset(track.albumArt) : null;
             var tidalAsset = await resolveExternalAsset(TIDAL_LOGO_URL);
 
-            if (!state.lastActivity) {
-                await new Promise(function(r) { setTimeout(r, 3500); });
-            }
-
             if (state.stopped) return;
-            // Re-check PC Vencord after async asset resolution / initial grace so we never collide with Desktop!
+            // Re-check PC session after async asset resolution so we never collide with Desktop
             if (isPcVencordActive()) {
-                clearActivity();
+                if (state.lastActivity) clearActivity();
                 return;
             }
 
@@ -576,50 +585,39 @@
         }
     }
 
-    function onPresenceUpdateEvent(event) {
+    function onSessionsChangedEvent(event) {
         if (state.stopped) return;
         try {
-            var myUid = getCurrentUserId();
-
+            if (event && Array.isArray(event.sessions)) {
+                state.latestFluxSessions = event.sessions;
+            }
             var pcNowActive = false;
-            var eventForMe = false;
-            if (event) {
-                if (Array.isArray(event.sessions)) {
-                    eventForMe = true;
-                    for (var sIdx = 0; sIdx < event.sessions.length; sIdx++) {
-                        if (isDesktopSession(event.sessions[sIdx])) {
-                            pcNowActive = true;
-                            break;
-                        }
-                    }
-                } else if (myUid && event.user && event.user.id === myUid && Array.isArray(event.activities)) {
-                    eventForMe = true;
-                    pcNowActive = event.activities.some(isActivityFromPc);
-                } else if (myUid && Array.isArray(event.updates)) {
-                    for (var i = 0; i < event.updates.length; i++) {
-                        var u = event.updates[i];
-                        if (u && u.user && u.user.id === myUid) {
-                            eventForMe = true;
-                            if (Array.isArray(u.activities) && u.activities.some(isActivityFromPc)) {
-                                pcNowActive = true;
-                            }
-                        }
+            if (event && Array.isArray(event.sessions)) {
+                for (var sIdx = 0; sIdx < event.sessions.length; sIdx++) {
+                    if (isDesktopSession(event.sessions[sIdx])) {
+                        pcNowActive = true;
+                        break;
                     }
                 }
+            } else {
+                pcNowActive = isPcVencordActive();
             }
 
             if (pcNowActive) {
-                state.pcLastSeenAt = Date.now();
-            }
-
-            if (pcNowActive || isPcVencordActive()) {
                 if (state.lastActivity) {
-                    console.log("[Tidal-RPC] Instant handoff: PC session/activity active -> clearing mobile presence");
+                    console.log("[Tidal-RPC] Instant handoff: PC session active -> clearing mobile presence");
                     clearActivity();
                 }
-            } else if (eventForMe && !state.lastActivity && (Date.now() - (state.pcLastSeenAt || 0)) > PC_HOLDOFF_MS) {
-                console.log("[Tidal-RPC] Instant handoff: PC session stopped -> restoring mobile presence");
-                updateActivity();
+            } else {
+                if (!state.lastActivity) {
+                    console.log("[Tidal-RPC] Instant handoff: PC session closed -> restoring mobile presence");
+                    updateActivity();
+                    setTimeout(function() {
+                        if (!state.stopped && !state.lastActivity && !isPcVencordActive()) {
+                            updateActivity();
+                        }
+                    }, 600);
+                }
             }
         } catch (e) {}
     }
@@ -627,20 +625,19 @@
     function startPolling() {
         stopPolling();
         state.stopped = false;
+        resolveDiscordModules();
         var dispatcher = getDispatcher();
         if (dispatcher && typeof dispatcher.subscribe === "function") {
             try {
-                dispatcher.subscribe("SESSIONS_REPLACE", onPresenceUpdateEvent);
-                dispatcher.subscribe("PRESENCE_UPDATES", onPresenceUpdateEvent);
-                dispatcher.subscribe("PRESENCE_UPDATE", onPresenceUpdateEvent);
+                dispatcher.subscribe("SESSIONS_REPLACE", onSessionsChangedEvent);
+                dispatcher.subscribe("CONNECTION_OPEN", onSessionsChangedEvent);
             } catch (e) {}
         }
         if (typeof valenced !== "undefined" && valenced?.discord?.flux?.onFluxEventDispatched) {
             try {
-                var unsub0 = valenced.discord.flux.onFluxEventDispatched("SESSIONS_REPLACE", onPresenceUpdateEvent);
-                var unsub1 = valenced.discord.flux.onFluxEventDispatched("PRESENCE_UPDATE", onPresenceUpdateEvent);
-                var unsub2 = valenced.discord.flux.onFluxEventDispatched("PRESENCE_UPDATES", onPresenceUpdateEvent);
-                state.fluxUnsubs = [unsub0, unsub1, unsub2];
+                var unsub0 = valenced.discord.flux.onFluxEventDispatched("SESSIONS_REPLACE", onSessionsChangedEvent);
+                var unsub1 = valenced.discord.flux.onFluxEventDispatched("CONNECTION_OPEN", onSessionsChangedEvent);
+                state.fluxUnsubs = [unsub0, unsub1];
             } catch (e) {}
         }
         updateActivity();
@@ -658,9 +655,8 @@
         var dispatcher = getDispatcher();
         if (dispatcher && typeof dispatcher.unsubscribe === "function") {
             try {
-                dispatcher.unsubscribe("SESSIONS_REPLACE", onPresenceUpdateEvent);
-                dispatcher.unsubscribe("PRESENCE_UPDATES", onPresenceUpdateEvent);
-                dispatcher.unsubscribe("PRESENCE_UPDATE", onPresenceUpdateEvent);
+                dispatcher.unsubscribe("SESSIONS_REPLACE", onSessionsChangedEvent);
+                dispatcher.unsubscribe("CONNECTION_OPEN", onSessionsChangedEvent);
             } catch (e) {}
         }
         if (Array.isArray(state.fluxUnsubs)) {
@@ -673,8 +669,7 @@
     async function testLastFmConnection(username, apiKey) {
         if (!username || !apiKey) return false;
         try {
-            var res = await fetch("https://ws.audioscrobbler.com/2.0/?method=user.getinfo&user=" + encodeURIComponent(username) + "&api_key=" + encodeURIComponent(apiKey) + "&format=json&_=" + Date.now());
-            var json = await res.json();
+            var json = await fetchJsonWithTimeout("https://ws.audioscrobbler.com/2.0/?method=user.getinfo&user=" + encodeURIComponent(username) + "&api_key=" + encodeURIComponent(apiKey) + "&format=json&_=" + Date.now(), {}, 5000);
             return !json.error;
         } catch (e) {
             return false;
@@ -747,6 +742,10 @@
             ? (state.lastActiveTrack.artist + " - " + state.lastActiveTrack.name)
             : "None detected yet";
 
+        var broadcastedLabel = state.lastActivity
+            ? (state.lastActivity.state + " - " + state.lastActivity.details)
+            : "None (Cleared)";
+
         return R.createElement(ScrollView, { keyboardShouldPersistTaps: "handled" },
             R.createElement(Page, null,
                 R.createElement(Stack, { spacing: 20 },
@@ -801,8 +800,8 @@
                     ),
                     R.createElement(TableRowGroup, { title: "Status & Diagnostics" },
                         R.createElement(TableRow, {
-                            label: "Account",
-                            subLabel: username ? ("Connected as: " + username) : "No username set"
+                            label: "Account & Version",
+                            subLabel: (username ? ("Connected as: " + username) : "No username set") + " (v" + PLUGIN_VERSION + ")"
                         }),
                         R.createElement(TableRow, {
                             label: "Mode",
@@ -815,6 +814,10 @@
                         R.createElement(TableRow, {
                             label: "Latest Scrobble",
                             subLabel: currentTrackLabel + (state.lastUpdateAt ? (" (" + state.lastUpdateAt + ")") : "")
+                        }),
+                        R.createElement(TableRow, {
+                            label: "Broadcasted RPC",
+                            subLabel: broadcastedLabel
                         }),
                         state.lastError ? R.createElement(TableRow, {
                             label: "Last Error",
@@ -832,6 +835,7 @@
                                 var ok = await testLastFmConnection(username, apiKey);
                                 if (ok) {
                                     state.lastTrackKey = null;
+                                    state.isUpdating = false;
                                     await updateActivity();
                                     setStatusMsg("✅ Connected & refreshed! Track: " + (state.lastActiveTrack ? (state.lastActiveTrack.artist + " - " + state.lastActiveTrack.name) : "No active track"));
                                 } else {
@@ -864,7 +868,6 @@
                     if (typeof valenced !== "undefined" && valenced?.discord?.flux?.getStore && ctx?.cleanup) {
                         ctx.cleanup(
                             valenced.discord.flux.getStore("SessionsStore", function(s) { if (s) storeCache.SessionsStore = s; }),
-                            valenced.discord.flux.getStore("PresenceStore", function(s) { if (s) storeCache.PresenceStore = s; }),
                             valenced.discord.flux.getStore("SelfPresenceStore", function(s) { if (s) storeCache.SelfPresenceStore = s; }),
                             valenced.discord.flux.getStore("UserStore", function(s) { if (s) storeCache.UserStore = s; }),
                             valenced.discord.flux.getStore("AuthenticationStore", function(s) { if (s) storeCache.AuthenticationStore = s; })
@@ -874,8 +877,11 @@
                     if (typeof valenced !== "undefined" && valenced?.modules?.finders?.getModules && ctx?.cleanup) {
                         var f = valenced.modules.finders.filters;
                         ctx.cleanup(
-                            valenced.modules.finders.getModules(f.withProps("HTTP", "post"), function(m) {
-                                if (m && m.HTTP) httpModule = m.HTTP;
+                            valenced.modules.finders.getModules(f.withProps("SET_ACTIVITY"), function(m) {
+                                if (m) setActivityModule = m;
+                            }),
+                            valenced.modules.finders.getModules(f.withProps("getAPIBaseURL", "post"), function(m) {
+                                if (m) httpModule = m;
                             }),
                             valenced.modules.finders.getModules(f.withProps("fetchAssetIds"), function(m) {
                                 if (m) assetUtilsModule = m;
