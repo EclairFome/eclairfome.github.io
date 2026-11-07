@@ -1,7 +1,7 @@
 (function(exports, jsxRuntime) {
     Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 
-    var PLUGIN_VERSION = "1.6.0";
+    var PLUGIN_VERSION = "1.7.0";
     var APP_ID = "1054951789318909972";
     var PC_VENCORD_APP_ID = "1108588077900898414";
     var MOBILE_SOCKET_ID = "Multi-Scrobbler@Vendetta";
@@ -17,7 +17,7 @@
         apiKey: "48257fff1da36374e5522726402608c7",
         appName: "{{artist}} - {{name}}",
         timeInterval: 5,
-        showTimestamp: false,
+        showTimestamp: true,
         listeningTo: true,
         showLargeText: true,
         showAlbumInTooltip: true,
@@ -29,7 +29,6 @@
     var fallbackArtCache = new Map();
     var httpModule = null;
     var assetUtilsModule = null;
-    var setActivityModule = null;
 
     var state = {
         stopped: true,
@@ -147,18 +146,6 @@
 
     function resolveDiscordModules() {
         try {
-            if (!setActivityModule) {
-                if (typeof valenced !== "undefined" && valenced?.modules?.finders?.lookupModule) {
-                    var fs = valenced.modules.finders.filters;
-                    var sm = valenced.modules.finders.lookupModule(fs.withProps("SET_ACTIVITY"));
-                    if (sm && sm[0]) setActivityModule = sm[0];
-                } else if (typeof vendetta !== "undefined" && vendetta?.metro?.findByProps) {
-                    setActivityModule = vendetta.metro.findByProps("SET_ACTIVITY");
-                }
-            }
-        } catch (e) {}
-
-        try {
             if (!httpModule && typeof valenced !== "undefined" && valenced?.modules?.finders?.lookupModule) {
                 var f = valenced.modules.finders.filters;
                 var m1 = valenced.modules.finders.lookupModule(f.withProps("HTTP", "post"));
@@ -191,17 +178,23 @@
 
     function dispatchActivity(activity) {
         if (state.stopped) activity = null;
-        resolveDiscordModules();
         state.lastActivity = activity;
         if (!activity) state.lastTrackKey = null;
         var dispatcher = getDispatcher();
         if (dispatcher && typeof dispatcher.dispatch === "function") {
-            dispatcher.dispatch({
+            var payload = {
                 type: "LOCAL_ACTIVITY_UPDATE",
                 activity: activity,
                 pid: MOBILE_PID,
                 socketId: MOBILE_SOCKET_ID
-            });
+            };
+            if (typeof dispatcher.isDispatching === "function" && dispatcher.isDispatching()) {
+                setTimeout(function() {
+                    try { dispatcher.dispatch(payload); } catch (e) {}
+                }, 0);
+            } else {
+                try { dispatcher.dispatch(payload); } catch (e) {}
+            }
         }
     }
 
@@ -510,12 +503,12 @@
         var primaryImg = imgArr.find(function(x) { return x.size === "extralarge"; }) || imgArr.find(function(x) { return x.size === "large"; });
         var albumArt = cleanArt(primaryImg && primaryImg["#text"]) || trackInfoArt;
 
-        // iTunes high-res cover fallback
-        if (!albumArt && nowPlaying && !skipExtras) {
+        // iTunes high-res cover & duration fallback (when Last.fm is missing cover art OR duration)
+        if ((!albumArt || !durationSec) && nowPlaying && !skipExtras) {
             var cKey = (artistName + "\0" + trackName + "\0" + albumName).toLowerCase();
-            if (fallbackArtCache.has(cKey)) {
-                albumArt = fallbackArtCache.get(cKey);
-            } else {
+            var cachedItunes = fallbackArtCache.get(cKey);
+            if (! cachedItunes) {
+                cachedItunes = { art: null, durationSec: null };
                 try {
                     var term = encodeURIComponent(artistName + " " + trackName);
                     var itJson = await fetchJsonWithTimeout("https://itunes.apple.com/search?term=" + term + "&entity=song&limit=5", {}, 4000);
@@ -526,11 +519,24 @@
                         var rA = (r.artistName || "").toLowerCase();
                         return rA && (rA.includes(aLow) || aLow.includes(rA));
                     });
-                    var match = aMatches.find(function(r) { return (r.trackName || "").toLowerCase() === tLow; }) || aMatches[0];
-                    var art = match?.artworkUrl100 ? match.artworkUrl100.replace("100x100bb", "512x512bb") : null;
-                    if (art) albumArt = art;
+                    var match = aMatches.find(function(r) { return (r.trackName || "").toLowerCase() === tLow; })
+                        || aMatches[0]
+                        || results.find(function(r) { return (r.trackName || "").toLowerCase() === tLow; });
+                    if (match?.artworkUrl100) {
+                        cachedItunes.art = match.artworkUrl100.replace("100x100bb", "512x512bb");
+                    }
+                    if (match?.trackTimeMillis > 0) {
+                        cachedItunes.durationSec = Math.floor(match.trackTimeMillis / 1000);
+                    }
                 } catch (e) {}
-                fallbackArtCache.set(cKey, albumArt || null);
+                fallbackArtCache.set(cKey, cachedItunes);
+            }
+            if (!albumArt && cachedItunes.art) {
+                albumArt = cachedItunes.art;
+            }
+            if (!durationSec && cachedItunes.durationSec > 0) {
+                durationSec = cachedItunes.durationSec;
+                endTimestamp = uts + durationSec;
             }
         }
 
@@ -616,7 +622,6 @@
                 type: cfg.listeningTo !== false ? 2 : 0,
                 details: track.name,
                 state: track.artist,
-                status_display_type: 1,
                 application_id: APP_ID
             };
 
@@ -662,12 +667,6 @@
                 if (largeText) assets.large_text = largeText;
             }
 
-            var tSearch = function(q) { return "https://listen.tidal.com/search?q=" + encodeURIComponent(q); };
-            activity.details_url = tSearch(track.artist + " " + track.name);
-            if (track.artist) activity.state_url = tSearch(track.artist);
-            if (track.album && (assets.large_image || assets.large_text)) {
-                assets.large_url = tSearch(track.artist + " " + track.album);
-            }
             if (Object.keys(assets).length > 0) {
                 activity.assets = assets;
             }
@@ -685,63 +684,54 @@
     }
 
     function onSessionsChangedEvent(event) {
-        if (state.stopped) return;
-        try {
-            if (event && Array.isArray(event.sessions)) {
-                state.latestFluxSessions = event.sessions;
-            }
-            var pcNowActive = false;
-            if (event && Array.isArray(event.sessions)) {
-                for (var sIdx = 0; sIdx < event.sessions.length; sIdx++) {
-                    if (isSessionShowingPcActivity(event.sessions[sIdx])) {
-                        pcNowActive = true;
-                        state.pcActivityLastSeenAt = Date.now();
-                        state.scrobbleWithoutPcSince = 0;
-                        break;
+        if (state.stopped) return event;
+        if (event && Array.isArray(event.sessions)) {
+            state.latestFluxSessions = event.sessions;
+        }
+        setTimeout(function() {
+            if (state.stopped) return;
+            try {
+                var pcNowActive = false;
+                if (event && Array.isArray(event.sessions)) {
+                    for (var sIdx = 0; sIdx < event.sessions.length; sIdx++) {
+                        if (isSessionShowingPcActivity(event.sessions[sIdx])) {
+                            pcNowActive = true;
+                            state.pcActivityLastSeenAt = Date.now();
+                            state.scrobbleWithoutPcSince = 0;
+                            break;
+                        }
                     }
                 }
-            }
-            if (!pcNowActive) {
-                pcNowActive = isPcActivityShowing();
-            }
-
-            var isScrobbling = !!(state.lastActiveTrack && (Date.now() - (state.lastActiveTime || 0)) < PAUSE_GRACE_MS);
-
-            if (pcNowActive || shouldYieldToPc(isScrobbling)) {
-                if (state.lastActivity) {
-                    console.log("[Tidal-RPC] Instant handoff: Yielding to PC -> clearing mobile presence");
-                    clearActivity();
+                if (!pcNowActive) {
+                    pcNowActive = isPcActivityShowing();
                 }
-            } else {
-                if (!state.lastActivity) {
-                    console.log("[Tidal-RPC] Instant handoff: Mobile active -> updating mobile presence");
-                    updateActivity();
-                    setTimeout(function() {
-                        if (!state.stopped && !state.lastActivity && !shouldYieldToPc(true)) {
-                            updateActivity();
-                        }
-                    }, 600);
+
+                var isScrobbling = !!(state.lastActiveTrack && (Date.now() - (state.lastActiveTime || 0)) < PAUSE_GRACE_MS);
+
+                if (pcNowActive || shouldYieldToPc(isScrobbling)) {
+                    if (state.lastActivity) {
+                        console.log("[Tidal-RPC] Instant handoff: Yielding to PC -> clearing mobile presence");
+                        clearActivity();
+                    }
+                } else {
+                    if (!state.lastActivity) {
+                        console.log("[Tidal-RPC] Instant handoff: Mobile active -> updating mobile presence");
+                        updateActivity();
+                    }
                 }
-            }
-        } catch (e) {}
+            } catch (e) {}
+        }, 0);
+        return event;
     }
 
     function startPolling() {
         stopPolling();
         state.stopped = false;
-        resolveDiscordModules();
         var dispatcher = getDispatcher();
         if (dispatcher && typeof dispatcher.subscribe === "function") {
             try {
                 dispatcher.subscribe("SESSIONS_REPLACE", onSessionsChangedEvent);
                 dispatcher.subscribe("CONNECTION_OPEN", onSessionsChangedEvent);
-            } catch (e) {}
-        }
-        if (typeof valenced !== "undefined" && valenced?.discord?.flux?.onFluxEventDispatched) {
-            try {
-                var unsub0 = valenced.discord.flux.onFluxEventDispatched("SESSIONS_REPLACE", onSessionsChangedEvent);
-                var unsub1 = valenced.discord.flux.onFluxEventDispatched("CONNECTION_OPEN", onSessionsChangedEvent);
-                state.fluxUnsubs = [unsub0, unsub1];
             } catch (e) {}
         }
         updateActivity();
@@ -762,10 +752,6 @@
                 dispatcher.unsubscribe("SESSIONS_REPLACE", onSessionsChangedEvent);
                 dispatcher.unsubscribe("CONNECTION_OPEN", onSessionsChangedEvent);
             } catch (e) {}
-        }
-        if (Array.isArray(state.fluxUnsubs)) {
-            state.fluxUnsubs.forEach(function(u) { if (typeof u === "function") u(); });
-            state.fluxUnsubs = null;
         }
         clearActivity();
     }
@@ -971,19 +957,13 @@
                     }
                     if (typeof valenced !== "undefined" && valenced?.discord?.flux?.getStore && ctx?.cleanup) {
                         ctx.cleanup(
-                            valenced.discord.flux.getStore("SessionsStore", function(s) { if (s) storeCache.SessionsStore = s; }),
-                            valenced.discord.flux.getStore("SelfPresenceStore", function(s) { if (s) storeCache.SelfPresenceStore = s; }),
-                            valenced.discord.flux.getStore("UserStore", function(s) { if (s) storeCache.UserStore = s; }),
-                            valenced.discord.flux.getStore("AuthenticationStore", function(s) { if (s) storeCache.AuthenticationStore = s; })
+                            valenced.discord.flux.getStore("SessionsStore", function(s) { if (s) storeCache.SessionsStore = s; })
                         );
                     }
                     // Pre-register Discord modules via Valenced getModules if available
                     if (typeof valenced !== "undefined" && valenced?.modules?.finders?.getModules && ctx?.cleanup) {
                         var f = valenced.modules.finders.filters;
                         ctx.cleanup(
-                            valenced.modules.finders.getModules(f.withProps("SET_ACTIVITY"), function(m) {
-                                if (m) setActivityModule = m;
-                            }),
                             valenced.modules.finders.getModules(f.withProps("HTTP", "post"), function(m) {
                                 if (m && m.HTTP) httpModule = m.HTTP;
                             }),
