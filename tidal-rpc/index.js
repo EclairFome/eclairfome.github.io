@@ -1,7 +1,7 @@
 (function(exports, jsxRuntime) {
     Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 
-    var PLUGIN_VERSION = "1.4.0";
+    var PLUGIN_VERSION = "1.5.0";
     var APP_ID = "1054951789318909972";
     var PC_VENCORD_APP_ID = "1108588077900898414";
     var MOBILE_SOCKET_ID = "Multi-Scrobbler@Vendetta";
@@ -47,9 +47,10 @@
     var liveSettings = Object.assign({}, defaultSettings);
 
     function withTimeout(promise, ms, fallbackValue) {
+        var hasFallback = arguments.length >= 3;
         return new Promise(function(resolve, reject) {
             var timer = setTimeout(function() {
-                if (arguments.length >= 3) {
+                if (hasFallback) {
                     resolve(fallbackValue);
                 } else {
                     reject(new Error("Request timed out after " + ms + "ms"));
@@ -62,7 +63,7 @@
                 },
                 function(err) {
                     clearTimeout(timer);
-                    if (arguments.length >= 3) {
+                    if (hasFallback) {
                         resolve(fallbackValue);
                     } else {
                         reject(err);
@@ -142,7 +143,6 @@
 
     function resolveDiscordModules() {
         try {
-            // Initialize SET_ACTIVITY module so LocalActivityStore is guaranteed to listen to LOCAL_ACTIVITY_UPDATE
             if (!setActivityModule) {
                 if (typeof valenced !== "undefined" && valenced?.modules?.finders?.lookupModule) {
                     var fs = valenced.modules.finders.filters;
@@ -157,11 +157,11 @@
         try {
             if (!httpModule && typeof valenced !== "undefined" && valenced?.modules?.finders?.lookupModule) {
                 var f = valenced.modules.finders.filters;
-                var m2 = valenced.modules.finders.lookupModule(f.withProps("getAPIBaseURL", "post"));
-                if (m2 && m2[0]) httpModule = m2[0];
+                var m1 = valenced.modules.finders.lookupModule(f.withProps("HTTP", "post"));
+                if (m1 && m1[0] && m1[0].HTTP) httpModule = m1[0].HTTP;
                 if (!httpModule) {
-                    var m1 = valenced.modules.finders.lookupModule(f.withProps("HTTP"));
-                    if (m1 && m1[0] && m1[0].HTTP) httpModule = m1[0].HTTP;
+                    var m2 = valenced.modules.finders.lookupModule(f.withProps("getAPIBaseURL", "post"));
+                    if (m2 && m2[0]) httpModule = m2[0];
                 }
             }
             if (!httpModule && typeof vendetta !== "undefined" && vendetta?.metro?.findByProps) {
@@ -213,10 +213,10 @@
 
         resolveDiscordModules();
 
-        // 1. Try assetUtilsModule.fetchAssetIds (with 4s timeout so it never hangs song switching)
+        // 1. Try assetUtilsModule.fetchAssetIds
         if (assetUtilsModule && typeof assetUtilsModule.fetchAssetIds === "function") {
             try {
-                var ids = await withTimeout(assetUtilsModule.fetchAssetIds(APP_ID, [url]), 4000, null);
+                var ids = await withTimeout(assetUtilsModule.fetchAssetIds(APP_ID, [url]), 5000, null);
                 if (Array.isArray(ids) && ids[0]) {
                     assetCache.set(url, ids[0]);
                     return ids[0];
@@ -226,26 +226,28 @@
 
         // 2. Try Discord HTTP module POST to /applications/{APP_ID}/external-assets
         if (httpModule && typeof httpModule.post === "function") {
-            var endpoint = "/applications/" + APP_ID + "/external-assets";
+            var endpoints = ["/applications/" + APP_ID + "/external-assets"];
             try {
                 var base = typeof httpModule.getAPIBaseURL === "function" ? httpModule.getAPIBaseURL() : "";
-                if (base) endpoint = base + "/applications/" + APP_ID + "/external-assets";
+                if (base) endpoints.push(base + "/applications/" + APP_ID + "/external-assets");
             } catch (e) {}
 
-            try {
-                var res = await withTimeout(httpModule.post({
-                    url: endpoint,
-                    body: { urls: [url] },
-                    oldFormErrors: true,
-                    rejectWithError: false
-                }), 4000, null);
-                var body = res && res.body;
-                if (Array.isArray(body) && body[0] && body[0].external_asset_path) {
-                    var mp = "mp:" + body[0].external_asset_path;
-                    assetCache.set(url, mp);
-                    return mp;
-                }
-            } catch (e) {}
+            for (var i = 0; i < endpoints.length; i++) {
+                try {
+                    var res = await withTimeout(httpModule.post({
+                        url: endpoints[i],
+                        body: { urls: [url] },
+                        oldFormErrors: true,
+                        rejectWithError: false
+                    }), 5000, null);
+                    var body = res && res.body;
+                    if (Array.isArray(body) && body[0] && body[0].external_asset_path) {
+                        var mp = "mp:" + body[0].external_asset_path;
+                        assetCache.set(url, mp);
+                        return mp;
+                    }
+                } catch (e) {}
+            }
         }
 
         return null;
@@ -268,11 +270,28 @@
         return appId === PC_VENCORD_APP_ID;
     }
 
-    function isDesktopSession(s) {
+    function isSessionShowingPcActivity(s) {
         if (!s || s.status === "offline" || s.status === "unknown") return false;
-        if (Array.isArray(s.activities) && s.activities.some(isActivityFromPc)) return true;
+        if (!Array.isArray(s.activities) || s.activities.length === 0) return false;
+        if (s.activities.some(isActivityFromPc)) return true;
         var ci = s.clientInfo || s.client_info;
-        if (ci && ci.client === "desktop") return true;
+        if (ci && ci.client === "desktop") {
+            return s.activities.some(function(a) {
+                var appId = a && (a.application_id || a.applicationId);
+                return a && a.type === 2 && appId !== APP_ID;
+            });
+        }
+        return false;
+    }
+
+    function hasDesktopSession() {
+        var sessList = getSessionsList();
+        for (var i = 0; i < sessList.length; i++) {
+            var s = sessList[i];
+            if (!s || s.status === "offline" || s.status === "unknown") continue;
+            var ci = s.clientInfo || s.client_info;
+            if (ci && ci.client === "desktop") return true;
+        }
         return false;
     }
 
@@ -313,13 +332,15 @@
                 var client = ci.client || ci.os || "unknown";
                 var status = s.status || "?";
                 var actCount = Array.isArray(s.activities) ? s.activities.length : 0;
-                return client + " (" + status + (actCount ? (", " + actCount + " act") : "") + ")";
+                return client + " (" + status + ", " + actCount + " act)";
             }).join(", ");
         } catch (e) {
             return "Error reading sessions";
         }
     }
 
+    // Returns true ONLY when PC is actually broadcasting/showing a music activity!
+    // If Last.fm is scrobbling and no PC activity is showing, this returns false so Mobile steps in.
     function isPcVencordActive() {
         try {
             var SessionsStore = getStore("SessionsStore");
@@ -338,12 +359,10 @@
             }
             var sessList = getSessionsList();
             for (var i = 0; i < sessList.length; i++) {
-                if (isDesktopSession(sessList[i])) {
+                if (isSessionShowingPcActivity(sessList[i])) {
                     return true;
                 }
             }
-            // IMPORTANT: Never fall back to PresenceStore.getActivities(myUid) because
-            // PresenceStore caches guild presences for myUid and stays stale after PC closes!
             return false;
         } catch (e) {
             return false;
@@ -395,7 +414,7 @@
         var cleanArt = function(artUrl) {
             if (!artUrl || typeof artUrl !== "string") return null;
             if (artUrl.includes(DEFAULT_COVER_HASH)) return null;
-            return artUrl.replace("https://lastfm-img.freetls.fastly.net/", "https://lastfm.freetls.fastly.net/");
+            return artUrl;
         };
 
         var durationSec = null;
@@ -465,13 +484,13 @@
 
     async function updateActivity() {
         if (state.stopped) return;
-        if (state.isUpdating && (Date.now() - (state.updateStartedAt || 0)) < 10000) return;
+        if (state.isUpdating && (Date.now() - (state.updateStartedAt || 0)) < 12000) return;
         state.isUpdating = true;
         state.updateStartedAt = Date.now();
         try {
             if (isPcVencordActive()) {
                 if (state.lastActivity) {
-                    console.log("[Tidal-RPC] PC session is active; clearing mobile presence");
+                    console.log("[Tidal-RPC] PC activity is showing; clearing mobile presence");
                     clearActivity();
                 }
                 return;
@@ -532,8 +551,14 @@
             var largeAsset = track.albumArt ? await resolveExternalAsset(track.albumArt) : null;
             var tidalAsset = await resolveExternalAsset(TIDAL_LOGO_URL);
 
+            // If Mobile wasn't broadcasting yet and a desktop session is listed, give PC 3.5s to post its activity first.
+            // If PC still hasn't posted any activity after 3.5s, PC isn't handling it -> Mobile steps in!
+            if (!state.lastActivity && hasDesktopSession() && !isPcVencordActive()) {
+                await new Promise(function(r) { setTimeout(r, 3500); });
+            }
+
             if (state.stopped) return;
-            // Re-check PC session after async asset resolution so we never collide with Desktop
+            // Re-check if PC is showing an activity now
             if (isPcVencordActive()) {
                 if (state.lastActivity) clearActivity();
                 return;
@@ -594,7 +619,7 @@
             var pcNowActive = false;
             if (event && Array.isArray(event.sessions)) {
                 for (var sIdx = 0; sIdx < event.sessions.length; sIdx++) {
-                    if (isDesktopSession(event.sessions[sIdx])) {
+                    if (isSessionShowingPcActivity(event.sessions[sIdx])) {
                         pcNowActive = true;
                         break;
                     }
@@ -605,12 +630,12 @@
 
             if (pcNowActive) {
                 if (state.lastActivity) {
-                    console.log("[Tidal-RPC] Instant handoff: PC session active -> clearing mobile presence");
+                    console.log("[Tidal-RPC] Instant handoff: PC activity showing -> clearing mobile presence");
                     clearActivity();
                 }
             } else {
                 if (!state.lastActivity) {
-                    console.log("[Tidal-RPC] Instant handoff: PC session closed -> restoring mobile presence");
+                    console.log("[Tidal-RPC] Instant handoff: No PC activity showing -> checking mobile presence");
                     updateActivity();
                     setTimeout(function() {
                         if (!state.stopped && !state.lastActivity && !isPcVencordActive()) {
@@ -805,7 +830,7 @@
                         }),
                         R.createElement(TableRow, {
                             label: "Mode",
-                            subLabel: isPcVencordActive() ? "Yielding to PC (Desktop Session Active)" : "Active on Mobile (PC is Offline)"
+                            subLabel: isPcVencordActive() ? "Yielding to PC (PC Activity Showing)" : "Active on Mobile (No PC Activity)"
                         }),
                         R.createElement(TableRow, {
                             label: "Active Sessions",
@@ -880,8 +905,8 @@
                             valenced.modules.finders.getModules(f.withProps("SET_ACTIVITY"), function(m) {
                                 if (m) setActivityModule = m;
                             }),
-                            valenced.modules.finders.getModules(f.withProps("getAPIBaseURL", "post"), function(m) {
-                                if (m) httpModule = m;
+                            valenced.modules.finders.getModules(f.withProps("HTTP", "post"), function(m) {
+                                if (m && m.HTTP) httpModule = m.HTTP;
                             }),
                             valenced.modules.finders.getModules(f.withProps("fetchAssetIds"), function(m) {
                                 if (m) assetUtilsModule = m;
