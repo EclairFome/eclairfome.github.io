@@ -234,22 +234,6 @@
         return !!(a && a.application_id === PC_VENCORD_APP_ID);
     }
 
-    function isDesktopSession(s) {
-        if (!s || s.status === "offline") return false;
-        if (Array.isArray(s.activities) && s.activities.some(isActivityFromPc)) return true;
-        var ci = s.clientInfo || s.client_info;
-        if (ci) {
-            if (ci.client === "desktop") return true;
-            if (ci.os && /^(windows|win32|macos|darwin|linux)$/i.test(ci.os)) return true;
-        }
-        return false;
-    }
-
-    function hasDesktopClientStatus(cs) {
-        if (!cs || typeof cs !== "object") return false;
-        return Boolean(cs.desktop && cs.desktop !== "offline");
-    }
-
     function isPcVencordActive() {
         try {
             var SessionsStore = getStore("SessionsStore");
@@ -271,7 +255,8 @@
                     var sessions = SessionsStore.getSessions();
                     if (sessions && typeof sessions === "object") {
                         for (var k in sessions) {
-                            if (isDesktopSession(sessions[k])) {
+                            var sess = sessions[k];
+                            if (sess && Array.isArray(sess.activities) && sess.activities.some(isActivityFromPc)) {
                                 state.pcLastSeenAt = Date.now();
                                 return true;
                             }
@@ -282,21 +267,6 @@
             var myUid = getCurrentUserId();
             var PresenceStore = getStore("PresenceStore");
             var SelfPresenceStore = getStore("SelfPresenceStore");
-            if (PresenceStore && myUid) {
-                if (typeof PresenceStore.getClientStatus === "function") {
-                    if (hasDesktopClientStatus(PresenceStore.getClientStatus(myUid))) {
-                        state.pcLastSeenAt = Date.now();
-                        return true;
-                    }
-                }
-                if (typeof PresenceStore.getState === "function") {
-                    var pState = PresenceStore.getState();
-                    if (pState && pState.clientStatuses && hasDesktopClientStatus(pState.clientStatuses[myUid])) {
-                        state.pcLastSeenAt = Date.now();
-                        return true;
-                    }
-                }
-            }
             var acts = [];
             if (PresenceStore && typeof PresenceStore.getActivities === "function" && myUid) {
                 var pActs = PresenceStore.getActivities(myUid);
@@ -496,8 +466,12 @@
             var largeAsset = track.albumArt ? await resolveExternalAsset(track.albumArt) : null;
             var tidalAsset = await resolveExternalAsset(TIDAL_LOGO_URL);
 
+            if (!state.lastActivity) {
+                await new Promise(function(r) { setTimeout(r, 3500); });
+            }
+
             if (state.stopped) return;
-            // Re-check PC Vencord after async asset resolution so we never collide with Desktop!
+            // Re-check PC Vencord after async asset resolution / initial grace so we never collide with Desktop!
             if (isPcVencordActive()) {
                 clearActivity();
                 return;
@@ -560,26 +534,21 @@
                 if (Array.isArray(event.sessions)) {
                     eventForMe = true;
                     for (var sIdx = 0; sIdx < event.sessions.length; sIdx++) {
-                        if (isDesktopSession(event.sessions[sIdx])) {
+                        var sess = event.sessions[sIdx];
+                        if (sess && Array.isArray(sess.activities) && sess.activities.some(isActivityFromPc)) {
                             pcNowActive = true;
                             break;
                         }
                     }
-                } else if (myUid && event.user && event.user.id === myUid) {
+                } else if (myUid && event.user && event.user.id === myUid && Array.isArray(event.activities)) {
                     eventForMe = true;
-                    if (hasDesktopClientStatus(event.client_status || event.clientStatus)) {
-                        pcNowActive = true;
-                    } else if (Array.isArray(event.activities) && event.activities.some(isActivityFromPc)) {
-                        pcNowActive = true;
-                    }
+                    pcNowActive = event.activities.some(isActivityFromPc);
                 } else if (myUid && Array.isArray(event.updates)) {
                     for (var i = 0; i < event.updates.length; i++) {
                         var u = event.updates[i];
                         if (u && u.user && u.user.id === myUid) {
                             eventForMe = true;
-                            if (hasDesktopClientStatus(u.client_status || u.clientStatus)) {
-                                pcNowActive = true;
-                            } else if (Array.isArray(u.activities) && u.activities.some(isActivityFromPc)) {
+                            if (Array.isArray(u.activities) && u.activities.some(isActivityFromPc)) {
                                 pcNowActive = true;
                             }
                         }
@@ -593,11 +562,11 @@
 
             if (pcNowActive || isPcVencordActive()) {
                 if (state.lastActivity) {
-                    console.log("[Tidal-RPC] Instant handoff: PC is online/active -> clearing mobile presence");
+                    console.log("[Tidal-RPC] Instant handoff: PC Vencord active -> clearing mobile presence");
                     clearActivity();
                 }
             } else if (eventForMe && !state.lastActivity && (Date.now() - (state.pcLastSeenAt || 0)) > PC_HOLDOFF_MS) {
-                console.log("[Tidal-RPC] Instant handoff: PC offline -> restoring mobile presence");
+                console.log("[Tidal-RPC] Instant handoff: PC Vencord stopped -> restoring mobile presence");
                 updateActivity();
             }
         } catch (e) {}
@@ -774,7 +743,7 @@
                         }),
                         R.createElement(TableRow, {
                             label: "Mode",
-                            subLabel: isPcVencordActive() ? "Yielding to PC (Desktop is Online)" : "Active on Mobile (PC is Offline)"
+                            subLabel: isPcVencordActive() ? "Yielding to PC (PC Activity Active)" : "Active on Mobile"
                         }),
                         R.createElement(TableRow, {
                             label: "Latest Scrobble",
