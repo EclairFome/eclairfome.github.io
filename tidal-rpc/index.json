@@ -9,13 +9,26 @@
       "author": "EclairFome",
       "icon": "MusicIcon",
       "channels": {
-        "latest": "1.8.0"
+        "latest": "1.9.0"
       },
       "versions": {
+        "1.9.0": {
+          "url": "https://eclairfome.github.io/tidal-rpc/pool/eclairfome.tidal-rpc@1.9.0.zip",
+          "sha256": "35db1f915ec4736a769a5159762b4e1ac7d87bf8f70d2bc6baa6bae20a01947a",
+          "size": 10284,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
         "1.8.0": {
           "url": "https://eclairfome.github.io/tidal-rpc/pool/eclairfome.tidal-rpc@1.8.0.zip",
-          "sha256": "987f560c7ee827f8452f81ab6eb53eba9c401a6d1261ab325a267d897b56d290",
-          "size": 9837,
+          "sha256": "35db1f915ec4736a769a5159762b4e1ac7d87bf8f70d2bc6baa6bae20a01947a",
+          "size": 10284,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
@@ -27,8 +40,8 @@
         },
         "1.7.0": {
           "url": "https://eclairfome.github.io/tidal-rpc/pool/eclairfome.tidal-rpc@1.7.0.zip",
-          "sha256": "987f560c7ee827f8452f81ab6eb53eba9c401a6d1261ab325a267d897b56d290",
-          "size": 9837,
+          "sha256": "35db1f915ec4736a769a5159762b4e1ac7d87bf8f70d2bc6baa6bae20a01947a",
+          "size": 10284,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
@@ -40,8 +53,8 @@
         },
         "1.6.0": {
           "url": "https://eclairfome.github.io/tidal-rpc/pool/eclairfome.tidal-rpc@1.6.0.zip",
-          "sha256": "987f560c7ee827f8452f81ab6eb53eba9c401a6d1261ab325a267d897b56d290",
-          "size": 9837,
+          "sha256": "35db1f915ec4736a769a5159762b4e1ac7d87bf8f70d2bc6baa6bae20a01947a",
+          "size": 10284,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
@@ -53,8 +66,8 @@
         },
         "1.5.0": {
           "url": "https://eclairfome.github.io/tidal-rpc/pool/eclairfome.tidal-rpc@1.5.0.zip",
-          "sha256": "987f560c7ee827f8452f81ab6eb53eba9c401a6d1261ab325a267d897b56d290",
-          "size": 9837,
+          "sha256": "35db1f915ec4736a769a5159762b4e1ac7d87bf8f70d2bc6baa6bae20a01947a",
+          "size": 10284,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
@@ -66,8 +79,8 @@
         },
         "1.4.0": {
           "url": "https://eclairfome.github.io/tidal-rpc/pool/eclairfome.tidal-rpc@1.4.0.zip",
-          "sha256": "987f560c7ee827f8452f81ab6eb53eba9c401a6d1261ab325a267d897b56d290",
-          "size": 9837,
+          "sha256": "35db1f915ec4736a769a5159762b4e1ac7d87bf8f70d2bc6baa6bae20a01947a",
+          "size": 10284,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
@@ -79,8 +92,8 @@
         },
         "1.3.0": {
           "url": "https://eclairfome.github.io/tidal-rpc/pool/eclairfome.tidal-rpc@1.3.0.zip",
-          "sha256": "987f560c7ee827f8452f81ab6eb53eba9c401a6d1261ab325a267d897b56d290",
-          "size": 9837,
+          "sha256": "35db1f915ec4736a769a5159762b4e1ac7d87bf8f70d2bc6baa6bae20a01947a",
+          "size": 10284,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
@@ -92,8 +105,8 @@
         },
         "1.2.0": {
           "url": "https://eclairfome.github.io/tidal-rpc/pool/eclairfome.tidal-rpc@1.2.0.zip",
-          "sha256": "987f560c7ee827f8452f81ab6eb53eba9c401a6d1261ab325a267d897b56d290",
-          "size": 9837,
+          "sha256": "35db1f915ec4736a769a5159762b4e1ac7d87bf8f70d2bc6baa6bae20a01947a",
+          "size": 10284,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
@@ -105,8 +118,8 @@
         },
         "1.1.0": {
           "url": "https://eclairfome.github.io/tidal-rpc/pool/eclairfome.tidal-rpc@1.1.0.zip",
-          "sha256": "987f560c7ee827f8452f81ab6eb53eba9c401a6d1261ab325a267d897b56d290",
-          "size": 9837,
+          "sha256": "35db1f915ec4736a769a5159762b4e1ac7d87bf8f70d2bc6baa6bae20a01947a",
+          "size": 10284,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
@@ -118,8 +131,8 @@
         },
         "1.0.0": {
           "url": "https://eclairfome.github.io/tidal-rpc/pool/eclairfome.tidal-rpc@1.0.0.zip",
-          "sha256": "987f560c7ee827f8452f81ab6eb53eba9c401a6d1261ab325a267d897b56d290",
-          "size": 9837,
+          "sha256": "35db1f915ec4736a769a5159762b4e1ac7d87bf8f70d2bc6baa6bae20a01947a",
+          "size": 10284,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"

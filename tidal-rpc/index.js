@@ -1,7 +1,7 @@
 (function(exports, jsxRuntime) {
     Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 
-    var PLUGIN_VERSION = "1.8.0";
+    var PLUGIN_VERSION = "1.9.0";
     var APP_ID = "1054951789318909972";
     var PC_VENCORD_APP_ID = "1108588077900898414";
     var MOBILE_SOCKET_ID = "Multi-Scrobbler@Vendetta";
@@ -472,31 +472,44 @@
         var cleanArt = function(artUrl) {
             if (!artUrl || typeof artUrl !== "string") return null;
             if (artUrl.includes(DEFAULT_COVER_HASH)) return null;
-            return artUrl;
+            return artUrl.replace("://lastfm-img.freetls.fastly.net/", "://lastfm.freetls.fastly.net/");
         };
+
+        var artistParts = artistName.split(/,|&|\bfeat\.?\b|\bft\.?\b/i).map(function(s) { return s.trim(); }).filter(Boolean);
+        var artistVariants = [artistName];
+        for (var apIdx = 0; apIdx < artistParts.length; apIdx++) {
+            var part = artistParts[apIdx];
+            if (!artistVariants.some(function(v) { return v.toLowerCase() === part.toLowerCase(); })) {
+                artistVariants.push(part);
+            }
+        }
+        var cleanTrackName = trackName.replace(/\s*[\(\[](?:feat\.?|ft\.?|with)\s+[^\)\]]+[\)\]]/gi, "").trim() || trackName;
 
         var durationSec = null;
         var endTimestamp = null;
         var trackInfoArt = null;
 
         if (nowPlaying && !skipExtras) {
-            try {
-                var infoQs = "method=track.getInfo&track=" + encodeURIComponent(trackName) +
-                             "&artist=" + encodeURIComponent(artistName) +
-                             "&autocorrect=1&api_key=" + encodeURIComponent(cfg.apiKey) +
-                             "&format=json&_=" + Date.now();
-                var infoJson = await fetchJsonWithTimeout("https://ws.audioscrobbler.com/2.0/?" + infoQs, {}, 4000);
-                var durMs = infoJson?.track?.duration ? parseInt(infoJson.track.duration, 10) : 0;
-                if (durMs > 0) {
-                    durationSec = Math.floor(durMs / 1000);
-                    endTimestamp = uts + durationSec;
-                }
-                var tImgs = infoJson?.track?.album?.image;
-                if (Array.isArray(tImgs)) {
-                    var lg = tImgs.find(function(x) { return x.size === "extralarge"; }) || tImgs.find(function(x) { return x.size === "large"; });
-                    if (lg) trackInfoArt = cleanArt(lg["#text"]);
-                }
-            } catch (e) {}
+            for (var avIdx = 0; avIdx < Math.min(artistVariants.length, 2); avIdx++) {
+                try {
+                    var infoQs = "method=track.getInfo&track=" + encodeURIComponent(trackName) +
+                                 "&artist=" + encodeURIComponent(artistVariants[avIdx]) +
+                                 "&autocorrect=1&api_key=" + encodeURIComponent(cfg.apiKey) +
+                                 "&format=json&_=" + Date.now();
+                    var infoJson = await fetchJsonWithTimeout("https://ws.audioscrobbler.com/2.0/?" + infoQs, {}, 4000);
+                    var durMs = infoJson?.track?.duration ? parseInt(infoJson.track.duration, 10) : 0;
+                    if (durMs > 0 && !durationSec) {
+                        durationSec = Math.floor(durMs / 1000);
+                        endTimestamp = uts + durationSec;
+                    }
+                    var tImgs = infoJson?.track?.album?.image;
+                    if (Array.isArray(tImgs) && !trackInfoArt) {
+                        var lg = tImgs.find(function(x) { return x.size === "extralarge"; }) || tImgs.find(function(x) { return x.size === "large"; });
+                        if (lg) trackInfoArt = cleanArt(lg["#text"]);
+                    }
+                    if (durationSec && trackInfoArt) break;
+                } catch (e) {}
+            }
         }
 
         var imgArr = Array.isArray(track.image) ? track.image : [];
@@ -507,28 +520,43 @@
         if ((!albumArt || !durationSec) && nowPlaying && !skipExtras) {
             var cKey = (artistName + "\0" + trackName + "\0" + albumName).toLowerCase();
             var cachedItunes = fallbackArtCache.get(cKey);
-            if (! cachedItunes) {
+            if (!cachedItunes) {
                 cachedItunes = { art: null, durationSec: null };
-                try {
-                    var term = encodeURIComponent(artistName + " " + trackName);
-                    var itJson = await fetchJsonWithTimeout("https://itunes.apple.com/search?term=" + term + "&entity=song&limit=5", {}, 4000);
-                    var aLow = artistName.toLowerCase();
-                    var tLow = trackName.toLowerCase();
-                    var results = Array.isArray(itJson?.results) ? itJson.results : [];
-                    var aMatches = results.filter(function(r) {
-                        var rA = (r.artistName || "").toLowerCase();
-                        return rA && (rA.includes(aLow) || aLow.includes(rA));
-                    });
-                    var match = aMatches.find(function(r) { return (r.trackName || "").toLowerCase() === tLow; })
-                        || aMatches[0]
-                        || results.find(function(r) { return (r.trackName || "").toLowerCase() === tLow; });
-                    if (match?.artworkUrl100) {
-                        cachedItunes.art = match.artworkUrl100.replace("100x100bb", "512x512bb");
-                    }
-                    if (match?.trackTimeMillis > 0) {
-                        cachedItunes.durationSec = Math.floor(match.trackTimeMillis / 1000);
-                    }
-                } catch (e) {}
+                var itunesQueries = [artistName + " " + trackName];
+                if (artistVariants[1] || cleanTrackName !== trackName) {
+                    itunesQueries.push((artistVariants[1] || artistName) + " " + cleanTrackName);
+                }
+                for (var iqIdx = 0; iqIdx < itunesQueries.length; iqIdx++) {
+                    try {
+                        var term = encodeURIComponent(itunesQueries[iqIdx]);
+                        var itJson = await fetchJsonWithTimeout("https://itunes.apple.com/search?term=" + term + "&entity=song&limit=5", {}, 4000);
+                        var tLow = trackName.toLowerCase();
+                        var ctLow = cleanTrackName.toLowerCase();
+                        var results = Array.isArray(itJson?.results) ? itJson.results : [];
+                        var aMatches = results.filter(function(r) {
+                            var rA = (r.artistName || "").toLowerCase();
+                            if (!rA) return false;
+                            return artistVariants.some(function(v) {
+                                var vLow = v.toLowerCase();
+                                return rA.includes(vLow) || vLow.includes(rA);
+                            });
+                        });
+                        var match = aMatches.find(function(r) {
+                            var rt = (r.trackName || "").toLowerCase();
+                            return rt === tLow || rt === ctLow;
+                        }) || aMatches[0] || results.find(function(r) {
+                            var rt = (r.trackName || "").toLowerCase();
+                            return rt === tLow || rt === ctLow;
+                        });
+                        if (match?.artworkUrl100 && !cachedItunes.art) {
+                            cachedItunes.art = match.artworkUrl100.replace("100x100bb", "512x512bb");
+                        }
+                        if (match?.trackTimeMillis > 0 && !cachedItunes.durationSec) {
+                            cachedItunes.durationSec = Math.floor(match.trackTimeMillis / 1000);
+                        }
+                        if (cachedItunes.art && cachedItunes.durationSec) break;
+                    } catch (e) {}
+                }
                 fallbackArtCache.set(cKey, cachedItunes);
             }
             if (!albumArt && cachedItunes.art) {
