@@ -1,0 +1,261 @@
+/* ==========================================================================
+   Aesthetic Top Artists Widget — 70s Vintage Edition
+   ========================================================================== */
+
+.top-artists-card {
+  max-width: 680px;
+  margin: 2.2rem auto 0;
+  background: #fff9ef;
+  border: 2px solid #4e3424;
+  border-radius: 26px;
+  padding: 2rem 2rem 1.85rem;
+  box-shadow: 8px 8px 0 #4e3424;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 5-Stripe 70s Top Ribbon */
+.top-artists-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 9px;
+  background: linear-gradient(
+    90deg,
+    #65c3ae 0% 20%,
+    #e2bf81 20% 40%,
+    #f19d28 40% 60%,
+    #e16c1d 60% 80%,
+    #4e3424 80% 100%
+  );
+  z-index: 2;
+}
+
+.top-artists-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.4rem;
+  padding-bottom: 1rem;
+  border-bottom: 1.5px dashed rgba(78, 52, 36, 0.22);
+  position: relative;
+  z-index: 1;
+}
+
+.top-artists-title-group {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.top-artists-title {
+  font-family: "Fraunces", "Inter", Georgia, serif;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #2b1b12;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.top-artists-subtitle {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #6e523f;
+  margin-top: 0.2rem;
+}
+
+.top-artists-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  position: relative;
+  z-index: 1;
+}
+
+.artist-row {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  padding: 0.8rem 1rem;
+  border-radius: 16px;
+  background: #fbf0dc;
+  border: 1.5px solid rgba(78, 52, 36, 0.28);
+  text-decoration: none;
+  color: inherit;
+  transition:
+    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    background 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease;
+  position: relative;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: artistFadeIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes artistFadeIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.artist-row:hover {
+  transform: translate(-3px, -3px);
+  background: #fffdf9;
+  border-color: #4e3424;
+  box-shadow: 5px 5px 0 #4e3424;
+  color: inherit;
+}
+
+/* Rank Badge */
+.artist-rank {
+  min-width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #2b1b12;
+  background: #e2bf81;
+  border: 1.5px solid #4e3424;
+  box-shadow: 2px 2px 0 #4e3424;
+  transition: transform 0.22s ease;
+  flex-shrink: 0;
+}
+
+.artist-row[data-rank="1"] .artist-rank { background: #e16c1d; color: #fff9ef; }
+.artist-row[data-rank="2"] .artist-rank { background: #f19d28; color: #2b1b12; }
+.artist-row[data-rank="3"] .artist-rank { background: #65c3ae; color: #2b1b12; }
+.artist-row[data-rank="4"] .artist-rank { background: #e2bf81; color: #2b1b12; }
+.artist-row[data-rank="5"] .artist-rank { background: #4e3424; color: #fbf0dc; }
+
+.artist-row:hover .artist-rank {
+  transform: scale(1.08) rotate(-4deg);
+}
+
+/* Circular Artist Avatar with 70s Ring Accent */
+.artist-avatar-wrap {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 2px solid #4e3424;
+  box-shadow: 3px 3px 0 rgba(78, 52, 36, 0.35);
+  background: #e2bf81;
+}
+
+.artist-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.artist-row:hover .artist-avatar {
+  transform: scale(1.1);
+}
+
+/* Artist Info */
+.artist-info {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.artist-top-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.artist-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #2b1b12;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+  transition: color 0.2s ease;
+}
+
+.artist-row:hover .artist-name {
+  color: #e16c1d;
+}
+
+.artist-genre-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(78, 52, 36, 0.28);
+  background: rgba(101, 195, 174, 0.3);
+  color: #2b1b12;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.artist-row:hover .artist-genre-badge {
+  background: #f19d28;
+  border-color: #4e3424;
+}
+
+.artist-meta {
+  font-size: 0.85rem;
+  color: #6e523f;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.artist-meta-label {
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.artist-meta-value {
+  font-weight: 700;
+  color: #2b1b12;
+}
+
+@media (max-width: 576px) {
+  .top-artists-card {
+    padding: 1.35rem 1.15rem;
+    border-radius: 20px;
+    margin-top: 1.75rem;
+  }
+  .artist-row {
+    gap: 0.75rem;
+    padding: 0.65rem;
+  }
+  .artist-avatar-wrap {
+    width: 48px;
+    height: 48px;
+  }
+  .artist-rank {
+    min-width: 30px;
+    height: 30px;
+    font-size: 0.8rem;
+  }
+  .artist-name {
+    font-size: 0.95rem;
+  }
+}

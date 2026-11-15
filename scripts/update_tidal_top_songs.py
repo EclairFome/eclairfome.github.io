@@ -1,11 +1,11 @@
 ﻿#!/usr/bin/env python3
 """
-Fetches your top 5 monthly tracks from TIDAL using `tidalapi` and updates
-`assets/data/top-songs.json` (including 30-second audio preview URLs).
+Fetches your top 5 tracks and top 5 favorite artists from TIDAL using `tidalapi`
+and updates `assets/data/top-songs.json` and `assets/data/top-artists.json`.
 
 Environment Variables:
   TIDAL_SESSION_JSON         (Required in CI) JSON string with token_type, access_token, refresh_token
-  TIDAL_MIX_OR_PLAYLIST_ID   (Optional) Specific TIDAL Mix ID or Playlist UUID to pull from
+  TIDAL_MIX_OR_PLAYLIST_ID   (Optional) Specific TIDAL Mix ID or Playlist UUID to pull tracks from
 """
 import datetime as dt
 import json
@@ -16,9 +16,9 @@ import requests
 import tidalapi
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
-OUTPUT_JSON = ROOT_DIR / "assets" / "data" / "top-songs.json"
+TOP_SONGS_JSON = ROOT_DIR / "assets" / "data" / "top-songs.json"
+TOP_ARTISTS_JSON = ROOT_DIR / "assets" / "data" / "top-artists.json"
 LOCAL_SESSION_FILE = ROOT_DIR / ".tidal_session.json"
-
 
 # Default playlist ID if TIDAL_MIX_OR_PLAYLIST_ID is not provided in env
 DEFAULT_PLAYLIST_ID = "99ccf688-a0e0-4a5d-b7c5-8bcc52c4ce67"
@@ -86,6 +86,39 @@ def fetch_itunes_preview(title: str, artist: str) -> str:
     return ""
 
 
+def get_artist_avatar(name: str, tidal_img: str) -> str:
+    """Returns a high-res artist avatar, falling back to Deezer if TIDAL returns a generic default."""
+    # Check if TIDAL provided a real artist image (1e01cdb6 is TIDAL's generic placeholder silhouette)
+    if tidal_img and "1e01cdb6" not in tidal_img:
+        return tidal_img
+
+    try:
+        url = f"https://api.deezer.com/search/artist?q={urllib.parse.quote(name)}"
+        resp = requests.get(url, timeout=4)
+        if resp.ok:
+            data = resp.json().get("data", [])
+            if data and data[0].get("picture_xl"):
+                return data[0]["picture_xl"]
+    except Exception:
+        pass
+
+    return tidal_img or "https://tidal.com/favicon.ico"
+
+
+def get_artist_genre(name: str) -> str:
+    """Fetches artist primary genre name via iTunes Search API."""
+    try:
+        url = f"https://itunes.apple.com/search?term={urllib.parse.quote(name)}&entity=musicArtist&limit=1"
+        resp = requests.get(url, timeout=4)
+        if resp.ok:
+            results = resp.json().get("results", [])
+            if results and results[0].get("primaryGenreName"):
+                return results[0]["primaryGenreName"]
+    except Exception:
+        pass
+    return "Artist"
+
+
 def get_mix_items(session: tidalapi.Session, mix_obj):
     """Handles both tidalapi.Mix (has .items()) and tidalapi.MixV2 (needs session.mix(id).items())."""
     if hasattr(mix_obj, "items") and callable(mix_obj.items):
@@ -130,7 +163,6 @@ def find_top_tracks(session: tidalapi.Session, limit: int = 5):
     except Exception:
         pass
 
-    # Prioritize "My Most Listened" / "History" / "Monthly" mixes, then "My Mix 1"
     keywords_priority = [
         ("most listened", "month", "history"),
         ("my mix 1", "my mix"),
@@ -149,16 +181,38 @@ def find_top_tracks(session: tidalapi.Session, limit: int = 5):
         if items:
             return items[:limit], getattr(first_mix, "title", "TIDAL Mix")
 
-    # 3. Fallback to most recently added Favorite tracks
     fav_tracks = session.user.favorites.tracks(limit=limit, order="DATE", order_direction="DESC")
     return fav_tracks[:limit], "Recent Favorites"
 
 
-def main():
-    session = load_session()
-    tracks, period_label = find_top_tracks(session, limit=5)
+def find_top_artists(session: tidalapi.Session, limit: int = 5):
+    """Retrieves user's top favorite artists automatically from TIDAL."""
+    artists = []
+    try:
+        home = session.home()
+        for category in getattr(home, "categories", []):
+            cat_title = (getattr(category, "title", "") or "").lower()
+            if "favorite artists" in cat_title or "artist" in cat_title:
+                for item in getattr(category, "items", []) or []:
+                    if type(item).__name__ == "Artist" or getattr(item, "name", None):
+                        artists.append(item)
+                if len(artists) >= limit:
+                    break
+    except Exception:
+        pass
 
-    now_str = dt.date.today().isoformat()
+    if not artists:
+        try:
+            favs = session.user.favorites.artists(limit=limit * 2)
+            artists = list(favs)
+        except Exception:
+            pass
+
+    return artists[:limit]
+
+
+def sync_top_songs(session: tidalapi.Session, now_str: str):
+    tracks, period_label = find_top_tracks(session, limit=5)
     formatted_tracks = []
 
     for idx, t in enumerate(tracks, start=1):
@@ -185,18 +239,17 @@ def main():
 
         formatted_tracks.append(entry)
 
-    # Only bump updated_at if the tracks list actually changed (prevents noisy daily commits)
     existing_date = now_str
-    if OUTPUT_JSON.exists():
+    if TOP_SONGS_JSON.exists():
         try:
-            existing_data = json.loads(OUTPUT_JSON.read_text(encoding="utf-8"))
+            existing_data = json.loads(TOP_SONGS_JSON.read_text(encoding="utf-8"))
             existing_tracks = [
-                (t.get("rank"), t.get("title"), t.get("artist"), t.get("url"))
-                for t in existing_data.get("tracks", [])
+                (tr.get("rank"), tr.get("title"), tr.get("artist"), tr.get("url"))
+                for tr in existing_data.get("tracks", [])
             ]
             new_tracks = [
-                (t.get("rank"), t.get("title"), t.get("artist"), t.get("url"))
-                for t in formatted_tracks
+                (tr.get("rank"), tr.get("title"), tr.get("artist"), tr.get("url"))
+                for tr in formatted_tracks
             ]
             if existing_tracks == new_tracks and existing_data.get("updated_at"):
                 existing_date = existing_data["updated_at"]
@@ -210,9 +263,83 @@ def main():
         "tracks": formatted_tracks,
     }
 
-    OUTPUT_JSON.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT_JSON.write_text(json.dumps(output_data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"[OK] Updated {OUTPUT_JSON} with {len(formatted_tracks)} tracks ({period_label}).")
+    TOP_SONGS_JSON.parent.mkdir(parents=True, exist_ok=True)
+    TOP_SONGS_JSON.write_text(json.dumps(output_data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    print(f"[OK] Updated {TOP_SONGS_JSON} with {len(formatted_tracks)} tracks ({period_label}).")
+
+
+def sync_top_artists(session: tidalapi.Session, now_str: str):
+    artists = find_top_artists(session, limit=5)
+    formatted_artists = []
+
+    for idx, a in enumerate(artists, start=1):
+        try:
+            art_obj = session.artist(a.id)
+        except Exception:
+            art_obj = a
+
+        name = getattr(art_obj, "name", "Unknown Artist")
+        tidal_img = ""
+        try:
+            tidal_img = art_obj.image(750)
+        except Exception:
+            pass
+
+        avatar = get_artist_avatar(name, tidal_img)
+        genre = get_artist_genre(name)
+
+        popular_track = ""
+        try:
+            tt = art_obj.get_top_tracks(limit=1)
+            if tt:
+                popular_track = tt[0].name
+        except Exception:
+            pass
+
+        entry = {
+            "rank": idx,
+            "name": name,
+            "avatar": avatar,
+            "genre": genre,
+            "popular_track": popular_track,
+            "url": f"https://tidal.com/browse/artist/{art_obj.id}",
+        }
+        formatted_artists.append(entry)
+
+    existing_date = now_str
+    if TOP_ARTISTS_JSON.exists():
+        try:
+            existing_data = json.loads(TOP_ARTISTS_JSON.read_text(encoding="utf-8"))
+            existing_artists = [
+                (ar.get("rank"), ar.get("name"), ar.get("url"))
+                for ar in existing_data.get("artists", [])
+            ]
+            new_artists = [
+                (ar.get("rank"), ar.get("name"), ar.get("url"))
+                for ar in formatted_artists
+            ]
+            if existing_artists == new_artists and existing_data.get("updated_at"):
+                existing_date = existing_data["updated_at"]
+        except Exception:
+            pass
+
+    output_data = {
+        "updated_at": existing_date,
+        "period_label": "Favorite Artists",
+        "source": "TIDAL",
+        "artists": formatted_artists,
+    }
+
+    TOP_ARTISTS_JSON.parent.mkdir(parents=True, exist_ok=True)
+    TOP_ARTISTS_JSON.write_text(json.dumps(output_data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    print(f"[OK] Updated {TOP_ARTISTS_JSON} with {len(formatted_artists)} artists.")
+
+
+def main():
+    session = load_session()
+    now_str = dt.date.today().isoformat()
+    sync_top_songs(session, now_str)
+    sync_top_artists(session, now_str)
 
 
 if __name__ == "__main__":

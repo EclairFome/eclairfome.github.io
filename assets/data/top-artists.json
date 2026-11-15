@@ -1,0 +1,47 @@
+{
+  "updated_at": "2026-11-15",
+  "period_label": "Favorite Artists",
+  "source": "TIDAL",
+  "artists": [
+    {
+      "rank": 1,
+      "name": "Candelabro",
+      "avatar": "https://resources.tidal.com/images/419daa1f/a9c0/4e2e/99ab/9199b8e083ab/750x750.jpg",
+      "genre": "Alternative",
+      "popular_track": "Domingo de ramos",
+      "url": "https://tidal.com/browse/artist/16486302"
+    },
+    {
+      "rank": 2,
+      "name": "isaac moises",
+      "avatar": "https://cdn-images.dzcdn.net/images/artist/af292ce8af6616bc75bfaa2c4030a5c9/1000x1000-000000-80-0-0.jpg",
+      "genre": "Urbano latino",
+      "popular_track": "ROCKSTAR (feat. NUTTYRN)",
+      "url": "https://tidal.com/browse/artist/39790502"
+    },
+    {
+      "rank": 3,
+      "name": "Estamos Perdidos",
+      "avatar": "https://cdn-images.dzcdn.net/images/artist/4974bd9746e43a4dfa23cf0cb991a237/1000x1000-000000-80-0-0.jpg",
+      "genre": "Indie Rock",
+      "popular_track": "Mil veces agosto",
+      "url": "https://tidal.com/browse/artist/47505603"
+    },
+    {
+      "rank": 4,
+      "name": "Residente",
+      "avatar": "https://resources.tidal.com/images/9ef41330/b86c/452f/99a8/1e8db257907b/750x750.jpg",
+      "genre": "Urbano latino",
+      "popular_track": "Bellacoso",
+      "url": "https://tidal.com/browse/artist/4504807"
+    },
+    {
+      "rank": 5,
+      "name": "AJR",
+      "avatar": "https://resources.tidal.com/images/aa49e7ec/fc6d/4075/ac8a/d8b9014d042a/750x750.jpg",
+      "genre": "Pop",
+      "popular_track": "Weak",
+      "url": "https://tidal.com/browse/artist/5073699"
+    }
+  ]
+}
