@@ -157,6 +157,7 @@
     }
 
     stopCurrentPlayback();
+    window.dispatchEvent(new CustomEvent("retro-audio-play", { detail: { source: "top-songs" } }));
     rowEl.classList.add("is-playing");
     const card = rowEl.closest(".top-songs-card");
     if (card) card.classList.add("has-playing");
@@ -217,7 +218,7 @@
 
     const tracks = Array.isArray(data.tracks) ? data.tracks.slice(0, 5) : [];
     if (subtitleEl) {
-      subtitleEl.textContent = "Updated often • Click a track for 30s preview";
+      subtitleEl.textContent = "Click a track for 30s preview";
     }
 
     const maxPlays = tracks.reduce((max, t) => Math.max(max, Number(t.plays) || 0), 0);
@@ -312,6 +313,12 @@
       });
     });
   }
+
+  window.addEventListener("retro-audio-play", function (e) {
+    if (!e.detail || e.detail.source !== "top-songs") {
+      stopCurrentPlayback();
+    }
+  });
 
   document.addEventListener("DOMContentLoaded", function () {
     fetch("assets/data/top-songs.json", { cache: "no-cache" })

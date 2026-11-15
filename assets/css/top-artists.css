@@ -86,6 +86,7 @@
   border: 1.5px solid rgba(78, 52, 36, 0.28);
   text-decoration: none;
   color: inherit;
+  cursor: pointer;
   transition:
     transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
     background 0.25s ease,
@@ -105,12 +106,18 @@
   }
 }
 
-.artist-row:hover {
+.artist-row:hover,
+.artist-row.is-playing {
   transform: translate(-3px, -3px);
   background: #fffdf9;
   border-color: #4e3424;
   box-shadow: 5px 5px 0 #4e3424;
   color: inherit;
+}
+
+.artist-row.is-playing {
+  background: #fff8ea;
+  border-color: #e16c1d;
 }
 
 /* Rank Badge */
@@ -166,6 +173,40 @@
   transform: scale(1.1);
 }
 
+.artist-avatar-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(43, 27, 18, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+
+.artist-row:hover .artist-avatar-overlay,
+.artist-row.is-playing .artist-avatar-overlay {
+  opacity: 1;
+}
+
+.artist-avatar-overlay svg {
+  width: 22px;
+  height: 22px;
+  fill: #fbf0dc;
+}
+
+.artist-avatar-overlay .icon-pause {
+  display: none;
+}
+
+.artist-row.is-playing .artist-avatar-overlay .icon-play {
+  display: none;
+}
+
+.artist-row.is-playing .artist-avatar-overlay .icon-pause {
+  display: block;
+}
+
 /* Artist Info */
 .artist-info {
   flex: 1;
@@ -181,6 +222,14 @@
   margin-bottom: 0.25rem;
 }
 
+.artist-name-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  flex: 1;
+}
+
 .artist-name {
   font-size: 1.05rem;
   font-weight: 700;
@@ -192,8 +241,62 @@
   transition: color 0.2s ease;
 }
 
-.artist-row:hover .artist-name {
+.artist-row.is-playing .retro-eq {
+  display: inline-flex;
+}
+
+.artist-row:hover .artist-name,
+.artist-row.is-playing .artist-name {
   color: #e16c1d;
+}
+
+.artist-meta-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.artist-timer {
+  display: none;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #2b1b12;
+  background: #f19d28;
+  border: 1px solid #4e3424;
+  padding: 0.12rem 0.55rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.artist-row.is-playing .artist-timer {
+  display: inline-flex;
+}
+
+.artist-tidal-link {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #6e523f;
+  background: rgba(78, 52, 36, 0.08);
+  border: 1px solid rgba(78, 52, 36, 0.2);
+  transition: all 0.2s ease;
+}
+
+.artist-tidal-link:hover {
+  background: #4e3424;
+  color: #fbf0dc;
+  border-color: #4e3424;
+  transform: scale(1.08);
+}
+
+.artist-tidal-link svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
 }
 
 .artist-genre-badge {
@@ -210,7 +313,8 @@
   transition: all 0.2s ease;
 }
 
-.artist-row:hover .artist-genre-badge {
+.artist-row:hover .artist-genre-badge,
+.artist-row.is-playing .artist-genre-badge {
   background: #f19d28;
   border-color: #4e3424;
 }
@@ -224,6 +328,29 @@
   display: flex;
   align-items: center;
   gap: 0.35rem;
+}
+
+.artist-bar-track {
+  width: 100%;
+  height: 4px;
+  margin-top: 0.45rem;
+  background: rgba(78, 52, 36, 0.12);
+  border-radius: 999px;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+
+.artist-row.is-playing .artist-bar-track {
+  opacity: 1;
+}
+
+.artist-bar-fill {
+  height: 100%;
+  width: var(--bar-width, 0%);
+  border-radius: 999px;
+  background: linear-gradient(90deg, #65c3ae 0%, #f19d28 50%, #e16c1d 100%);
+  transition: width 0.25s linear;
 }
 
 .artist-meta-label {

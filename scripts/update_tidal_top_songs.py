@@ -67,27 +67,55 @@ def get_track_cover(track) -> str:
     return "https://tidal.com/favicon.ico"
 
 
-def fetch_itunes_preview(title: str, artist: str) -> str:
-    """Looks up a permanent 30-second m4a preview URL via the iTunes Search API."""
+def fetch_itunes_song_info(title: str, artist: str) -> tuple[str, str]:
+    """Looks up a 30-second m4a preview URL and primary genre via the iTunes Search API."""
+    if not title:
+        return "", ""
     try:
         query = f"{title} {artist}"
-        url = f"https://itunes.apple.com/search?term={urllib.parse.quote(query)}&entity=song&limit=3"
+        url = f"https://itunes.apple.com/search?term={urllib.parse.quote(query)}&entity=song&limit=5"
         resp = requests.get(url, timeout=6)
         if resp.ok:
             results = resp.json().get("results", [])
-            artist_lower = artist.lower()
-            for r in results:
-                if artist_lower in (r.get("artistName", "") or "").lower() and r.get("previewUrl"):
-                    return r["previewUrl"]
-            if results and results[0].get("previewUrl"):
-                return results[0]["previewUrl"]
+            artist_lower = artist.strip().lower()
+            title_lower = title.strip().lower()
+            # Prefer a result matching both artist and track title
+            ordered = [
+                r for r in results
+                if artist_lower in (r.get("artistName", "") or "").lower()
+                and title_lower in (r.get("trackName", "") or "").lower()
+            ] + [
+                r for r in results
+                if artist_lower in (r.get("artistName", "") or "").lower()
+            ] + results
+            preview = next((r.get("previewUrl") for r in ordered if r.get("previewUrl")), "")
+            genre = next((r.get("primaryGenreName") for r in ordered if r.get("primaryGenreName")), "")
+            return preview or "", genre or ""
     except Exception:
         pass
-    return ""
+    return "", ""
 
 
-def get_artist_avatar(name: str, tidal_img: str) -> str:
-    """Returns a high-res artist avatar, falling back to Deezer if TIDAL returns a generic default."""
+def fetch_itunes_preview(title: str, artist: str) -> str:
+    """Looks up a permanent 30-second m4a preview URL via the iTunes Search API."""
+    preview, _ = fetch_itunes_song_info(title, artist)
+    return preview
+
+
+DEEZER_PLACEHOLDER_HASHES = {
+    "4974bd9746e43a4dfa23cf0cb991a237",
+    "d41d8cd98f00b204e9800998ecf8427e",
+}
+
+
+def is_valid_deezer_picture(pic_url: str) -> bool:
+    if not pic_url or "/artist//" in pic_url or "default" in pic_url.lower():
+        return False
+    return not any(h in pic_url for h in DEEZER_PLACEHOLDER_HASHES)
+
+
+def get_artist_avatar(name: str, tidal_img: str, fallback_cover: str = "") -> str:
+    """Returns a high-res artist avatar, falling back to Deezer or release cover art if generic."""
     # Check if TIDAL provided a real artist image (1e01cdb6 is TIDAL's generic placeholder silhouette)
     if tidal_img and "1e01cdb6" not in tidal_img:
         return tidal_img
@@ -97,12 +125,19 @@ def get_artist_avatar(name: str, tidal_img: str) -> str:
         resp = requests.get(url, timeout=4)
         if resp.ok:
             data = resp.json().get("data", [])
-            if data and data[0].get("picture_xl"):
-                return data[0]["picture_xl"]
+            name_lower = name.strip().lower()
+            exact = [d for d in data if (d.get("name") or "").strip().lower() == name_lower]
+            for candidate in exact + data:
+                pic = candidate.get("picture_xl") or ""
+                if is_valid_deezer_picture(pic):
+                    return pic
     except Exception:
         pass
 
-    return tidal_img or "https://tidal.com/favicon.ico"
+    if fallback_cover:
+        return fallback_cover
+
+    return "https://tidal.com/favicon.ico"
 
 
 def get_artist_genre(name: str) -> str:
@@ -116,7 +151,60 @@ def get_artist_genre(name: str) -> str:
                 return results[0]["primaryGenreName"]
     except Exception:
         pass
-    return "Artist"
+    return ""
+
+
+def get_deezer_genre(track_title: str, artist_name: str) -> str:
+    """Backup genre lookup via Deezer track/album or artist album metadata."""
+    try:
+        if track_title:
+            q = f"{track_title} {artist_name}"
+            resp = requests.get(
+                f"https://api.deezer.com/search?q={urllib.parse.quote(q)}&limit=3",
+                timeout=4,
+            )
+            if resp.ok:
+                for item in resp.json().get("data", []):
+                    album_id = (item.get("album") or {}).get("id")
+                    if album_id:
+                        alb_resp = requests.get(f"https://api.deezer.com/album/{album_id}", timeout=4)
+                        if alb_resp.ok:
+                            genres = ((alb_resp.json().get("genres") or {}).get("data") or [])
+                            if genres and genres[0].get("name"):
+                                return genres[0]["name"]
+
+        art_resp = requests.get(
+            f"https://api.deezer.com/search/artist?q={urllib.parse.quote(artist_name)}&limit=3",
+            timeout=4,
+        )
+        if art_resp.ok:
+            artists_data = art_resp.json().get("data", [])
+            if artists_data:
+                art_id = artists_data[0].get("id")
+                if art_id:
+                    albs_resp = requests.get(
+                        f"https://api.deezer.com/artist/{art_id}/albums?limit=3",
+                        timeout=4,
+                    )
+                    if albs_resp.ok:
+                        for alb in albs_resp.json().get("data", []):
+                            album_id = alb.get("id")
+                            if album_id:
+                                full_alb = requests.get(f"https://api.deezer.com/album/{album_id}", timeout=4)
+                                if full_alb.ok:
+                                    genres = ((full_alb.json().get("genres") or {}).get("data") or [])
+                                    if genres and genres[0].get("name"):
+                                        return genres[0]["name"]
+    except Exception:
+        pass
+    return ""
+
+
+def resolve_artist_track_genre_and_preview(track_title: str, artist_name: str) -> tuple[str, str]:
+    """Returns (genre, preview_url) prioritizing top-track genre -> artist genre -> Deezer backup."""
+    preview_url, song_genre = fetch_itunes_song_info(track_title, artist_name)
+    genre = song_genre or get_artist_genre(artist_name) or get_deezer_genre(track_title, artist_name) or "Artist"
+    return genre, preview_url
 
 
 def get_mix_items(session: tidalapi.Session, mix_obj):
@@ -268,8 +356,58 @@ def sync_top_songs(session: tidalapi.Session, now_str: str):
     print(f"[OK] Updated {TOP_SONGS_JSON} with {len(formatted_tracks)} tracks ({period_label}).")
 
 
+def build_user_top_tracks_by_artist(session: tidalapi.Session):
+    """Maps artist IDs and lowercase names to the user's most-listened track for that artist."""
+    by_id = {}
+    by_name = {}
+
+    def record_tracks(tracks):
+        for tr in tracks or []:
+            tr_artists = list(getattr(tr, "artists", None) or [])
+            primary = getattr(tr, "artist", None)
+            if primary and primary not in tr_artists:
+                tr_artists.insert(0, primary)
+            for art in tr_artists:
+                art_id = getattr(art, "id", None)
+                art_name = (getattr(art, "name", "") or "").strip().lower()
+                if art_id is not None and art_id not in by_id:
+                    by_id[art_id] = tr
+                if art_name and art_name not in by_name:
+                    by_name[art_name] = tr
+
+    history_mixes = []
+    try:
+        home = session.home()
+        for category in getattr(home, "categories", []):
+            cat_title = (getattr(category, "title", "") or "").lower()
+            if "history" in cat_title:
+                for item in getattr(category, "items", []) or []:
+                    if getattr(item, "id", None):
+                        history_mixes.append(item)
+    except Exception:
+        pass
+
+    # Prioritize "My Most Listened" before monthly/other history mixes
+    history_mixes.sort(
+        key=lambda m: 0 if "most listened" in (getattr(m, "title", "") or "").lower() else 1
+    )
+    for mix in history_mixes:
+        try:
+            record_tracks(get_mix_items(session, mix))
+        except Exception:
+            pass
+
+    try:
+        record_tracks(session.user.favorites.tracks(limit=50))
+    except Exception:
+        pass
+
+    return by_id, by_name
+
+
 def sync_top_artists(session: tidalapi.Session, now_str: str):
     artists = find_top_artists(session, limit=5)
+    user_tracks_by_id, user_tracks_by_name = build_user_top_tracks_by_artist(session)
     formatted_artists = []
 
     for idx, a in enumerate(artists, start=1):
@@ -285,16 +423,36 @@ def sync_top_artists(session: tidalapi.Session, now_str: str):
         except Exception:
             pass
 
-        avatar = get_artist_avatar(name, tidal_img)
-        genre = get_artist_genre(name)
+        top_track_obj = user_tracks_by_id.get(getattr(art_obj, "id", None)) or user_tracks_by_name.get(
+            name.strip().lower()
+        )
+        if top_track_obj is None:
+            try:
+                tt = art_obj.get_top_tracks(limit=1)
+                if tt:
+                    top_track_obj = tt[0]
+            except Exception:
+                pass
 
-        popular_track = ""
-        try:
-            tt = art_obj.get_top_tracks(limit=1)
-            if tt:
-                popular_track = tt[0].name
-        except Exception:
-            pass
+        popular_track = getattr(top_track_obj, "name", "") if top_track_obj else ""
+        fallback_cover = ""
+        if top_track_obj and getattr(top_track_obj, "album", None):
+            try:
+                fallback_cover = top_track_obj.album.image(640)
+            except Exception:
+                pass
+        if not fallback_cover:
+            for getter in ("get_albums", "get_ep_singles"):
+                try:
+                    releases = getattr(art_obj, getter)(limit=1)
+                    if releases:
+                        fallback_cover = releases[0].image(640)
+                        break
+                except Exception:
+                    pass
+
+        avatar = get_artist_avatar(name, tidal_img, fallback_cover=fallback_cover)
+        genre, preview_url = resolve_artist_track_genre_and_preview(popular_track, name)
 
         entry = {
             "rank": idx,
@@ -302,6 +460,7 @@ def sync_top_artists(session: tidalapi.Session, now_str: str):
             "avatar": avatar,
             "genre": genre,
             "popular_track": popular_track,
+            "preview_url": preview_url,
             "url": f"https://tidal.com/browse/artist/{art_obj.id}",
         }
         formatted_artists.append(entry)
@@ -311,11 +470,11 @@ def sync_top_artists(session: tidalapi.Session, now_str: str):
         try:
             existing_data = json.loads(TOP_ARTISTS_JSON.read_text(encoding="utf-8"))
             existing_artists = [
-                (ar.get("rank"), ar.get("name"), ar.get("url"))
+                (ar.get("rank"), ar.get("name"), ar.get("avatar"), ar.get("popular_track"), ar.get("url"))
                 for ar in existing_data.get("artists", [])
             ]
             new_artists = [
-                (ar.get("rank"), ar.get("name"), ar.get("url"))
+                (ar.get("rank"), ar.get("name"), ar.get("avatar"), ar.get("popular_track"), ar.get("url"))
                 for ar in formatted_artists
             ]
             if existing_artists == new_artists and existing_data.get("updated_at"):
