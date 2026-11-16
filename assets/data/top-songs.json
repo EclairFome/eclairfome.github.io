@@ -1,10 +1,20 @@
 {
-  "updated_at": "2026-11-15",
+  "updated_at": "2026-11-16",
   "period_label": "Updated often",
   "source": "TIDAL",
   "tracks": [
     {
       "rank": 1,
+      "title": "embers",
+      "artist": "Dead Butterflies",
+      "album": "that feeling in your chest",
+      "cover": "https://resources.tidal.com/images/71fa3b5e/f203/4e5d/90dd/eab3ae5e4a76/640x640.jpg",
+      "url": "https://tidal.com/browse/track/407936261",
+      "duration_label": "7:10",
+      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/ac/59/5e/ac595eba-b174-8a68-ccef-df0a2cceaa67/mzaf_280911162200418837.plus.aac.p.m4a"
+    },
+    {
+      "rank": 2,
       "title": "Anova",
       "artist": "Hesse Kassel",
       "album": "La Brea",
@@ -14,7 +24,7 @@
       "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/14/df/a1/14dfa13f-f913-c60d-bc6c-fd7d19a1db58/mzaf_8407304920528146714.plus.aac.p.m4a"
     },
     {
-      "rank": 2,
+      "rank": 3,
       "title": "Fracaso",
       "artist": "Candelabro",
       "album": "Deseo, Carne y Voluntad",
@@ -22,16 +32,6 @@
       "url": "https://tidal.com/browse/track/463696307",
       "duration_label": "6:15",
       "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/4b/f3/ef/4bf3efbd-630b-ed35-f0cb-b457819d32c5/mzaf_4087912110059471080.plus.aac.p.m4a"
-    },
-    {
-      "rank": 3,
-      "title": "embers",
-      "artist": "Dead Butterflies",
-      "album": "that feeling in your chest",
-      "cover": "https://resources.tidal.com/images/71fa3b5e/f203/4e5d/90dd/eab3ae5e4a76/640x640.jpg",
-      "url": "https://tidal.com/browse/track/407936261",
-      "duration_label": "7:10",
-      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/ac/59/5e/ac595eba-b174-8a68-ccef-df0a2cceaa67/mzaf_280911162200418837.plus.aac.p.m4a"
     },
     {
       "rank": 4,
