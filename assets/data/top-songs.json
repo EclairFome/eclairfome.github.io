@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-16",
+  "updated_at": "2026-11-22",
   "period_label": "Updated often",
   "source": "TIDAL",
   "tracks": [
@@ -15,42 +15,42 @@
     },
     {
       "rank": 2,
-      "title": "Anova",
-      "artist": "Hesse Kassel",
-      "album": "La Brea",
-      "cover": "https://resources.tidal.com/images/8da40ea6/abbd/473e/b557/1debb120247b/640x640.jpg",
-      "url": "https://tidal.com/browse/track/418440494",
-      "duration_label": "7:22",
-      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/14/df/a1/14dfa13f-f913-c60d-bc6c-fd7d19a1db58/mzaf_8407304920528146714.plus.aac.p.m4a"
+      "title": "muffled beneath the sound of the ocean",
+      "artist": "Your Arms Are My Cocoon",
+      "album": "death of a rabbit",
+      "cover": "https://resources.tidal.com/images/0e5174a9/37fc/4d1f/a88f/8077b4171aa6/640x640.jpg",
+      "url": "https://tidal.com/browse/track/377897477",
+      "duration_label": "2:26",
+      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/8c/df/65/8cdf65ac-2e5d-cda7-fd93-ac337429b36a/mzaf_7487786719129969146.plus.aac.p.m4a"
     },
     {
       "rank": 3,
-      "title": "Fracaso",
+      "title": "Señales",
       "artist": "Candelabro",
-      "album": "Deseo, Carne y Voluntad",
-      "cover": "https://resources.tidal.com/images/1ddbffb4/8fdb/469f/992b/ca8235684ecd/640x640.jpg",
-      "url": "https://tidal.com/browse/track/463696307",
-      "duration_label": "6:15",
-      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/4b/f3/ef/4bf3efbd-630b-ed35-f0cb-b457819d32c5/mzaf_4087912110059471080.plus.aac.p.m4a"
+      "album": "Ahora o Nunca",
+      "cover": "https://resources.tidal.com/images/d4a40ddc/173c/40d6/8c93/651097e841f8/640x640.jpg",
+      "url": "https://tidal.com/browse/track/326616885",
+      "duration_label": "2:41",
+      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/51/17/95/51179581-e249-e52a-5bce-744ac2982678/mzaf_17860899489840587041.plus.aac.p.m4a"
     },
     {
       "rank": 4,
-      "title": "27a Pitfield St",
-      "artist": "bassvictim",
-      "album": "Forever",
-      "cover": "https://resources.tidal.com/images/2377a080/a18b/4bc6/8e79/4fbce2ba1348/640x640.jpg",
-      "url": "https://tidal.com/browse/track/529703645",
-      "duration_label": "2:47",
-      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/75/ef/d8/75efd8ef-ea00-ffa8-eb69-4184d418415a/mzaf_8664352154715662537.plus.aac.p.m4a"
-    },
-    {
-      "rank": 5,
       "title": "the cops are coming",
       "artist": "Junior Mesa",
       "album": "the cops are coming",
       "cover": "https://resources.tidal.com/images/7305e25c/45ca/44a6/bc26/d2ee0d5895c1/640x640.jpg",
       "url": "https://tidal.com/browse/track/549286222",
       "duration_label": "3:14",
+      "preview_url": ""
+    },
+    {
+      "rank": 5,
+      "title": "Urus",
+      "artist": "Favé",
+      "album": "F4",
+      "cover": "https://resources.tidal.com/images/704335a1/c29f/4598/becb/9f6f1ceddf41/640x640.jpg",
+      "url": "https://tidal.com/browse/track/268879780",
+      "duration_label": "2:28",
       "preview_url": ""
     }
   ]
