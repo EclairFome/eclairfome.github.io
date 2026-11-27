@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-26",
+  "updated_at": "2026-11-27",
   "period_label": "Favorite Artists",
   "source": "TIDAL",
   "artists": [
@@ -23,6 +23,15 @@
     },
     {
       "rank": 3,
+      "name": "Kerchak",
+      "avatar": "https://resources.tidal.com/images/453c5750/7082/416d/8c69/1a516749bb5b/750x750.jpg",
+      "genre": "Soundtrack",
+      "popular_track": "Tarzan",
+      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview113/v4/cd/3d/2d/cd3d2dbf-ec01-cc2f-9301-1c0933227ee6/mzaf_13673038466233707762.plus.aac.p.m4a",
+      "url": "https://tidal.com/browse/artist/30816786"
+    },
+    {
+      "rank": 4,
       "name": "Residente",
       "avatar": "https://resources.tidal.com/images/9ef41330/b86c/452f/99a8/1e8db257907b/750x750.jpg",
       "genre": "Urbano latino",
@@ -31,22 +40,13 @@
       "url": "https://tidal.com/browse/artist/4504807"
     },
     {
-      "rank": 4,
+      "rank": 5,
       "name": "Your Arms Are My Cocoon",
       "avatar": "https://cdn-images.dzcdn.net/images/artist/77b911c2d4b6ae2bcc108ce24768ba03/1000x1000-000000-80-0-0.jpg",
       "genre": "EMO",
       "popular_track": "muffled beneath the sound of the ocean",
       "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/8c/df/65/8cdf65ac-2e5d-cda7-fd93-ac337429b36a/mzaf_7487786719129969146.plus.aac.p.m4a",
       "url": "https://tidal.com/browse/artist/21270307"
-    },
-    {
-      "rank": 5,
-      "name": "Niños Del Cerro",
-      "avatar": "https://cdn-images.dzcdn.net/images/artist/1c876f69626a2ce2d99f296b2b039103/1000x1000-000000-80-0-0.jpg",
-      "genre": "Alternative",
-      "popular_track": "Contigo",
-      "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/62/22/f9/6222f900-42c2-3a89-6328-66197484f3ba/mzaf_12272904292340460203.plus.aac.p.m4a",
-      "url": "https://tidal.com/browse/artist/6340534"
     }
   ]
 }
